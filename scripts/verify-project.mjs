@@ -14,6 +14,7 @@ const manifestChinese = await readJson('package.nls.zh-cn.json');
 const runtimeChinese = await readJson('l10n/bundle.l10n.zh-cn.json');
 const previewReleaseNotes = await readFile('.github/release-notes/preview.md', 'utf8');
 const stableReleaseNotes = await readFile('.github/release-notes/stable.md', 'utf8');
+const esbuildConfig = await readFile('esbuild.mjs', 'utf8');
 
 if (manifest.name !== 'ssh-onboard' || manifest.publisher !== 'ZhangZhengruiNUS') {
   fail('extension identity does not match the approved project identity');
@@ -32,6 +33,9 @@ if (manifest.activationEvents?.some((event) => event === '*' || event === 'onSta
 }
 if (manifest.capabilities?.untrustedWorkspaces?.supported !== true) {
   fail('untrusted workspace support must be explicit');
+}
+if (!esbuildConfig.includes("external: ['vscode', '*.node']")) {
+  fail('optional ssh2 native accelerators must remain external to the portable bundle');
 }
 
 for (const [name, template] of [
