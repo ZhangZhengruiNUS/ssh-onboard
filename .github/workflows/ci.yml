@@ -18,7 +18,9 @@ jobs:
       matrix:
         os:
           - ubuntu-latest
-          - windows-latest
+          # Reproducible Windows CI baseline for V0.1. ACL owner verification is
+          # a security gate; revalidate owner and DACL behavior before changing it.
+          - windows-2022
 
     steps:
       - name: Check out repository

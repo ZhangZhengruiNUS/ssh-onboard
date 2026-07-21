@@ -6,6 +6,8 @@ The project follows [Semantic Versioning](https://semver.org/) after its first p
 
 ## [Unreleased]
 
+## [0.1.0-preview.1] - 2026-07-21
+
 ### Added
 
 - Initial VS Code extension scaffold, localization, native Tree View, tests, CI, and security-focused project documentation.
@@ -15,3 +17,8 @@ The project follows [Semantic Versioning](https://semver.org/) after its first p
 - Conservative, recoverable `authorized_keys` deployment and exact managed-key revocation.
 - Conflict-aware OpenSSH config management, isolated `known_hosts`, strict expanded-config assertions, and BatchMode verification.
 - Microsoft Remote - SSH launch into the verified default folder.
+
+### Known limitations
+
+- This Preview has not yet completed a real Windows-to-Linux password-bootstrap, `authorized_keys`, and Remote - SSH end-to-end test.
+- Windows automation is pinned to GitHub's Windows Server 2022 image. Ownerless filesystems and custom SSH Config locations that cannot preserve and report exact Windows ACLs fail closed.
