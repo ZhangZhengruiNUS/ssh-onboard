@@ -1,0 +1,142 @@
+{
+  "name": "ssh-onboard",
+  "displayName": "%extension.displayName%",
+  "description": "%extension.description%",
+  "version": "0.0.1",
+  "publisher": "ZhangZhengruiNUS",
+  "license": "SEE LICENSE IN LICENSE",
+  "private": true,
+  "preview": true,
+  "packageManager": "npm@11.9.0",
+  "engines": {
+    "vscode": "^1.101.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "remote",
+    "ssh",
+    "remote-ssh",
+    "public-key",
+    "onboarding",
+    "server"
+  ],
+  "homepage": "https://github.com/ZhangZhengruiNUS/ssh-onboard#readme",
+  "bugs": {
+    "url": "https://github.com/ZhangZhengruiNUS/ssh-onboard/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ZhangZhengruiNUS/ssh-onboard.git"
+  },
+  "main": "./dist/extension.js",
+  "l10n": "./l10n",
+  "extensionKind": [
+    "ui"
+  ],
+  "extensionPack": [
+    "ms-vscode-remote.remote-ssh"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    },
+    "virtualWorkspaces": true
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "sshOnboard.addHost",
+        "title": "%command.addHost.title%",
+        "category": "%command.category%",
+        "icon": "$(add)"
+      },
+      {
+        "command": "sshOnboard.showLogs",
+        "title": "%command.showLogs.title%",
+        "category": "%command.category%"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "sshOnboard",
+          "title": "%viewContainer.title%",
+          "icon": "media/activitybar.svg"
+        }
+      ]
+    },
+    "views": {
+      "sshOnboard": [
+        {
+          "id": "sshOnboard.servers",
+          "name": "%view.servers.title%",
+          "contextualTitle": "%view.servers.contextualTitle%"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "sshOnboard.servers",
+        "contents": "%viewsWelcome.servers%"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "sshOnboard.addHost",
+          "when": "view == sshOnboard.servers",
+          "group": "navigation@1"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "clean": "node scripts/clean.mjs",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:markdown": "markdownlint-cli2 \"**/*.md\" \"#node_modules\" \"#.vscode-test\"",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "bundle": "node esbuild.mjs",
+    "package": "npm run typecheck && npm run lint && node esbuild.mjs --production",
+    "watch:esbuild": "node esbuild.mjs --watch",
+    "watch:types": "tsc --noEmit --watch",
+    "compile:tests": "tsc --project tsconfig.test.json",
+    "test:unit": "npm run compile:tests && mocha --ui tdd \"out/test/unit/**/*.test.js\"",
+    "test:extension": "npm run package && npm run compile:tests && vscode-test",
+    "test": "npm run test:unit && npm run test:extension",
+    "verify:toolchain": "node scripts/verify-toolchain.mjs",
+    "verify:project": "node scripts/verify-project.mjs",
+    "verify:package-files": "node scripts/verify-package-files.mjs",
+    "audit:dependencies": "npm audit --registry=https://registry.npmjs.org --audit-level=high && npm audit signatures --registry=https://registry.npmjs.org",
+    "check": "npm run verify:toolchain && npm run format:check && npm run lint:markdown && npm run typecheck && npm run lint && npm run test:unit && npm run package && npm run verify:project && npm run verify:package-files",
+    "vsce:ls": "vsce ls",
+    "package:vsix": "npm run package && npm run verify:package-files && node scripts/prepare-artifacts.mjs && vsce package --out artifacts/ssh-onboard.vsix"
+  },
+  "overrides": {
+    "mocha": {
+      "diff": "8.0.3",
+      "glob": "13.0.6",
+      "serialize-javascript": "7.0.5"
+    }
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/mocha": "10.0.10",
+    "@types/node": "22.20.1",
+    "@types/vscode": "1.101.0",
+    "@vscode/test-cli": "0.0.15",
+    "@vscode/test-electron": "3.0.0",
+    "@vscode/vsce": "3.9.2",
+    "esbuild": "0.28.1",
+    "eslint": "10.7.0",
+    "markdownlint-cli2": "0.23.1",
+    "mocha": "11.7.6",
+    "prettier": "3.9.6",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.65.0"
+  }
+}

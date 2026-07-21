@@ -1,0 +1,64 @@
+name: Bug report
+description: Report a reproducible problem in SSH Onboard.
+title: '[Bug]: '
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve SSH Onboard. Never include passwords, private keys, full server addresses, or unredacted SSH logs.
+  - type: input
+    id: version
+    attributes:
+      label: SSH Onboard version
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: input
+    id: vscode-version
+    attributes:
+      label: VS Code version
+      placeholder: 1.101.0
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Local platform
+      options:
+        - Windows x64
+        - Other (not supported in V0.1)
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the observed and expected behavior without sensitive host data.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      placeholder: |
+        1. Open SSH Onboard
+        2. Select ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Redacted diagnostics
+      description: Include only error codes and sanitized details. Do not paste raw authentication prompts or host lists.
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety check
+      options:
+        - label: I removed passwords, private keys, full server addresses, usernames, and unredacted logs.
+          required: true
+        - label: This is not a security vulnerability. I will use private vulnerability reporting for security issues.
+          required: true

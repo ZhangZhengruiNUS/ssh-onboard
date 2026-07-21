@@ -1,0 +1,11 @@
+{
+  "extension.displayName": "SSH Onboard",
+  "extension.description": "Onboard SSH hosts once, then connect to the right folder with Microsoft's Remote - SSH.",
+  "command.category": "SSH Onboard",
+  "command.addHost.title": "Add Host",
+  "command.showLogs.title": "Show Logs",
+  "viewContainer.title": "SSH Onboard",
+  "view.servers.title": "SSH Hosts",
+  "view.servers.contextualTitle": "SSH Onboard Hosts",
+  "viewsWelcome.servers": "No SSH hosts have been added.\n[Add Host](command:sshOnboard.addHost)"
+}

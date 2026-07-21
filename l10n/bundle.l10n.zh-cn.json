@@ -1,0 +1,9 @@
+{
+  "SSH Onboard": "SSH Onboard",
+  "SSH Onboard activated.": "SSH Onboard 已激活。",
+  "Remote - SSH is available.": "Remote - SSH 已可用。",
+  "Remote - SSH is not installed or is disabled.": "Remote - SSH 未安装或已被禁用。",
+  "Host onboarding will be implemented in the next development phase.": "主机初始化功能将在下一开发阶段实现。",
+  "This development build currently supports Windows only.": "当前开发版本仅支持 Windows。",
+  "The operation could not be completed ({0}).": "操作无法完成（{0}）。"
+}

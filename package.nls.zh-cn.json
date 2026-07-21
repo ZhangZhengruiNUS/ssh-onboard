@@ -1,0 +1,11 @@
+{
+  "extension.displayName": "SSH Onboard",
+  "extension.description": "一次初始化 SSH 主机，之后通过微软 Remote - SSH 直接连接并打开目标目录。",
+  "command.category": "SSH Onboard",
+  "command.addHost.title": "添加主机",
+  "command.showLogs.title": "显示日志",
+  "viewContainer.title": "SSH Onboard",
+  "view.servers.title": "SSH 主机",
+  "view.servers.contextualTitle": "SSH Onboard 主机",
+  "viewsWelcome.servers": "尚未添加 SSH 主机。\n[添加主机](command:sshOnboard.addHost)"
+}
