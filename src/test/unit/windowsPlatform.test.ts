@@ -15,13 +15,16 @@ const windowsTest = process.platform === 'win32' ? test : test.skip;
 suite('Windows platform integration', function () {
   this.timeout(30_000);
   windowsTest('discovers OpenSSH and writes a config that ssh -G accepts', async () => {
-    const temporary = await mkdtemp(path.join(os.tmpdir(), 'ssh-onboard-test-'));
+    const temporary = await mkdtemp(path.join(os.homedir(), 'ssh-onboard-test-'));
     try {
       const runner = new ProcessRunner();
       const acl = new WindowsFileAcl(runner);
       const openssh = new WindowsOpenSsh(runner);
       const tools = await openssh.discover();
       const service = new SshConfigService(runner, acl);
+      const defaultPaths = service.resolvePaths();
+      assert.equal(defaultPaths.userConfig, path.join(os.homedir(), '.ssh', 'config'));
+      assert.equal(defaultPaths.managedDirectory, path.join(os.homedir(), '.ssh', 'ssh-onboard'));
       const paths = service.resolvePaths(path.join(temporary, 'config'));
       const keyPath = path.join(temporary, 'test key');
       await writeFile(keyPath, 'not-used-by-ssh-g', 'utf8');

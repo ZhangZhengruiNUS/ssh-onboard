@@ -91,6 +91,7 @@ VS Code 扩展并非系统安全沙箱。安装扩展意味着用户信任发布
 - 不重写用户所有 Host 块，不生成 `Host *`、`Match`、`ProxyCommand` 或任意命令。
 - Alias 必须在受控字符集内，并检查用户现有配置和受管配置中的冲突。
 - Include 修改前备份；源 hash 变化时拒绝覆盖。
+- Windows 上的配置与密钥目录必须位于能持久化并验证 owner 和 DACL 的文件系统。默认使用 `%USERPROFILE%\.ssh`；如果自定义 `remote.SSH.configFile` 位于无法读取 owner、无法关闭继承或无法持久化 ACL 的临时卷、网络卷或非 ACL 文件系统，扩展会安全中止。此时应恢复默认路径，或选择当前用户可拥有且支持 Windows ACL 的本地路径。
 - 受管文件每次写后使用 `ssh -G` 验证 HostName、User、Port、IdentityFile、known_hosts 和认证策略。
 - BatchMode 使用不 Include 用户配置、且只写一条目标 IdentityFile 的一次性最小配置；`ssh -G` 必须证明展开结果恰好只有目标 IdentityFile，CertificateFile 为 none，ProxyCommand/ProxyJump/LocalCommand 不改变身份、路由或执行行为，并且 HostKeyAlias 精确等于 `ssh-onboard-<profile UUID>`。受管 `known_hosts` 只用这一固定别名绑定该 profile 已确认的 exact key，以隔离共享 endpoint 的不同 profile。
 - 错误输出不得包含完整主机清单；用户主动打开 Diagnostics 时才显示脱敏值。
