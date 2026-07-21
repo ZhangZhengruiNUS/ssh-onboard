@@ -21,4 +21,4 @@ The project follows [Semantic Versioning](https://semver.org/) after its first p
 ### Known limitations
 
 - This Preview has not yet completed a real Windows-to-Linux password-bootstrap, `authorized_keys`, and Remote - SSH end-to-end test.
-- Windows automation is pinned to GitHub's Windows Server 2022 image. Ownerless filesystems and custom SSH Config locations that cannot preserve and report exact Windows ACLs fail closed.
+- Windows paths with unreadable or ambiguous security descriptors fail closed. An explicitly absent owner is accepted only when the protected DACL exactly grants FullControl to the current user and SYSTEM.

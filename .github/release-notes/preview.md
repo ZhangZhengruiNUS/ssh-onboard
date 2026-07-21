@@ -13,7 +13,7 @@
 - One-time password bootstrap has not yet completed a real Windows-to-Linux end-to-end test.
 - Public-key deployment to a real Linux `authorized_keys` file has not yet completed that end-to-end test.
 - Opening the configured default folder through the official Remote - SSH extension has not yet completed that end-to-end test.
-- Automated Windows verification and release builds use GitHub's Windows Server 2022 image as the reproducible V0.1 baseline. The GitHub-hosted Windows Server 2025 runner currently exposes tested paths without a verifiable owner SID, so SSH Onboard intentionally stops instead of weakening private-key ACL checks. Filesystems or custom SSH Config locations that cannot persist and report an owner and exact Windows DACL are outside this Preview's supported scope; use the default `%USERPROFILE%\.ssh` location on a supported Windows 10/11 desktop.
+- Windows paths must expose a verifiable security descriptor and an exact protected DACL. An explicitly absent owner is accepted only when that DACL contains exactly the current user and SYSTEM; unreadable or ambiguous ACL state fails closed.
 
 Use a disposable test server and a non-privileged account. Do not use this preview for production access.
 
