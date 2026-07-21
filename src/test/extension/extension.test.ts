@@ -13,13 +13,27 @@ suite('SSH Onboard extension', () => {
 
     const commands = await vscode.commands.getCommands(true);
     assert.equal(extension.isActive, true);
-    assert.equal(commands.includes('sshOnboard.addHost'), true);
-    assert.equal(commands.includes('sshOnboard.showLogs'), true);
+    for (const command of [
+      'sshOnboard.addHost',
+      'sshOnboard.connectHost',
+      'sshOnboard.editHost',
+      'sshOnboard.exportProfiles',
+      'sshOnboard.initializeHost',
+      'sshOnboard.refresh',
+      'sshOnboard.removeHost',
+      'sshOnboard.revokeKey',
+      'sshOnboard.searchHosts',
+      'sshOnboard.showLogs',
+      'sshOnboard.showDiagnostics',
+      'sshOnboard.testConnection',
+    ]) {
+      assert.equal(commands.includes(command), true, `${command} should be registered`);
+    }
   });
 
-  test('starts with an empty native tree view', async () => {
+  test('starts with an empty native tree view', () => {
     const provider = new HostTreeDataProvider();
-    const children = await provider.getChildren();
+    const children = provider.getChildren();
 
     assert.deepEqual(children, []);
   });

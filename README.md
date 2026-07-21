@@ -1,73 +1,103 @@
 # SSH Onboard
 
-> 项目状态：开发阶段，尚未提供可安装版本。
+[简体中文](README.zh-CN.md)
 
-## 为什么开发 SSH Onboard
+> Preview software. Test with a disposable server before using valuable infrastructure. Download the current build from [GitHub Releases](https://github.com/ZhangZhengruiNUS/ssh-onboard/releases).
 
-微软官方 **Remote - SSH** 是一套非常强大的 VS Code 远程开发工具：它提供远程文件访问、集成终端、远程扩展、语言服务、Git、调试和端口转发等完整体验。
+SSH Onboard turns the one-time SSH key setup into a guided workflow, then hands everyday remote development back to Microsoft's Remote - SSH extension.
 
-但在使用密码认证时，Remote - SSH 默认不会保存并自动填写服务器密码。建立新的 SSH 连接时，用户仍可能需要再次输入密码。常见解决办法是在本机生成 SSH 密钥，再把公钥写入服务器的 `~/.ssh/authorized_keys`；完成后即可通过公钥认证登录。
+## Why SSH Onboard
 
-这个流程对熟悉 SSH 的开发者并不复杂，但对新手并不友好：需要理解公钥和私钥、选择正确文件、复制公钥、处理 `authorized_keys`、修正目录权限、编辑 SSH Config，并验证最终登录是否真的使用了目标密钥。任何一步出错，都可能导致认证失败，甚至影响原有 SSH 配置。
+Microsoft's **Remote - SSH** provides an excellent remote-development experience: remote files, integrated terminals, remote extensions, language services, Git, debugging, and port forwarding. However, password authentication is not remembered and automatically replayed for new connections.
 
-默认打开路径也是一个高频痛点。许多开发者连接某台服务器后，总是进入同一个项目目录；但常见流程仍是先连接主机，再手动选择或打开该目录。新连接或窗口切换还可能再次触发认证，重复操作既耗时又容易打断工作节奏。
+The usual answer is to generate an SSH key locally and upload its public key to `~/.ssh/authorized_keys`. That is routine for experienced SSH users, but it is easy for newcomers to choose the wrong file, damage `authorized_keys`, apply unsafe permissions, edit the wrong SSH config, or never verify which identity actually authenticated.
 
-SSH Onboard 正是为解决这些问题而生：
+Opening the same remote project folder is another recurring annoyance. Developers often connect to one host and always work in one directory, yet still have to open that directory manually—and may encounter another password prompt while switching windows.
+
+SSH Onboard exists to make that setup explicit and repeatable:
 
 ```text
-添加服务器并设置默认目录
-→ 首次输入一次密码并核对主机指纹
-→ 自动生成或选择 SSH 密钥
-→ 安全部署公钥并验证密钥登录
-→ 配置官方 Remote - SSH
-→ 一键连接并打开默认目录
+Add a host and its default folder
+→ inspect and independently verify the host fingerprint
+→ enter the server password once (never saved)
+→ generate or select an SSH key
+→ safely add the public key and verify key-only login
+→ open the default folder with Microsoft Remote - SSH
 ```
 
-SSH Onboard **不是重新实现一套 SSH 客户端或远程开发环境**，而是微软官方 Remote - SSH 的轻量增强层。它只负责服务器资料、首次公钥初始化、受控 SSH 配置和默认目录；连接后的 Explorer、终端、远程扩展、Git、调试和语言服务仍全部由官方 Remote - SSH 提供。
+SSH Onboard is **not another SSH client**. It is a thin enhancement for Microsoft's Remote - SSH. Explorer, terminals, remote extensions, Git, debugging, and language tooling remain provided by Remote - SSH.
 
-## 核心目标
+## V0.1 features
 
-- 首次连接只输入一次服务器密码，密码不持久化。
-- 在发送密码前显示并确认服务器主机指纹。
-- 默认为每台服务器生成独立的 Ed25519 密钥。
-- 高级配置可选择已有密钥或显式共享组密钥。
-- 保守、可检测冲突地维护本地 SSH Config 和远端 `authorized_keys`；发现外部并发修改即中止。
-- 验证密钥登录成功后，一键用官方 Remote - SSH 打开默认目录。
+- Native Tree View for adding, grouping, editing, searching, and removing hosts.
+- One-time password bootstrap after an explicit host-fingerprint trust decision.
+- A dedicated Ed25519 key per host by default.
+- Advanced choice of an existing unencrypted key or an explicitly shared generated group key.
+- Conflict-aware SSH Config Include management and an isolated `known_hosts` file.
+- Conservative, lock-protected `authorized_keys` updates and exact managed-key revocation.
+- Non-interactive OpenSSH verification with one configured identity and password fallback disabled.
+- One-click Remote - SSH launch directly into the verified default folder.
+- Sanitized diagnostics and profile export; no telemetry, cloud sync, AI, or paid features.
 
-## V0.1 支持范围
+## Supported environment
 
-- 本地：Windows x64、VS Code Desktop、本机 OpenSSH Client。
-- 远端：可直连、允许密码认证和公钥认证的标准 Linux SSH 主机。
-- 默认账号：普通 Linux 用户；`root`、跳板机、MFA、非标准 `AuthorizedKeysFile` 暂不属于正式支持范围。
+- Local: Windows x64, VS Code Desktop, and Windows OpenSSH Client.
+- Remote: a directly reachable standard Linux OpenSSH server that allows password and public-key authentication.
+- Account: a normal Linux user with a writable home directory.
 
-## 不做什么
+Root accounts, jump hosts, MFA, nonstandard `AuthorizedKeysFile` layouts, encrypted existing keys, and macOS/Linux clients are outside V0.1's tested scope.
 
-- 不实现自己的 SFTP Explorer 或 SSH 终端。
-- 不替代 Remote - SSH，也不在远端安装自有服务。
-- 不保存服务器密码、私钥口令或一次性验证码。
-- 不提供遥测、云同步、AI、审计平台或收费授权功能。
+## Install
 
-## 许可证
+To install the current GitHub Preview:
 
-本项目采用 [MIT License](LICENSE)，版权署名为 `ZhangZhengruiNUS`。
+1. Download `ssh-onboard-<version>.vsix` from [Releases](https://github.com/ZhangZhengruiNUS/ssh-onboard/releases).
+2. In VS Code, run **Extensions: Install from VSIX...**.
+3. Select the downloaded file and reload VS Code.
 
-贡献代码前请阅读 [贡献指南](CONTRIBUTING.md)；安全问题请通过 [安全策略](SECURITY.md) 中的私密渠道报告，不要创建公开 Issue。
+For local development builds:
 
-## 设计文档
+```powershell
+npm ci
+npm run check
+npm run package:vsix
+```
 
-- [产品需求规格](docs/PRODUCT_SPEC.md)
-- [技术架构设计](docs/ARCHITECTURE.md)
-- [安全设计与威胁模型](docs/SECURITY.md)
-- [开发、测试与发布计划](docs/DEVELOPMENT_PLAN.md)
+Install the generated `artifacts/ssh-onboard-<version>.vsix` only in a test VS Code profile until the release notes say otherwise.
 
-## 已确认公开标识
+## Use
 
-| 项目                  | 值                                        |
-| --------------------- | ----------------------------------------- |
-| Display Name          | `SSH Onboard`                             |
-| Extension Name        | `ssh-onboard`                             |
-| GitHub Repository     | `ZhangZhengruiNUS/ssh-onboard`            |
-| Command Namespace     | `sshOnboard`                              |
-| Marketplace Publisher | 暂定 `ZhangZhengruiNUS`，发布前创建并确认 |
+1. Open the **SSH Onboard** Activity Bar view and select **Add Host**.
+2. Enter the host, user, SSH alias, optional group, and default absolute POSIX path.
+3. Keep the recommended per-host key, or open the advanced key strategy options.
+4. Select **Initialize Key Access**.
+5. Verify the displayed SSH host fingerprint through an independent channel before accepting it.
+6. Enter the SSH password once. SSH Onboard does not persist it.
+7. After verification succeeds, select **Connect and Open Default Folder**.
 
-截至 2026-07-21，VS Code Marketplace、GitHub、npm 和公开软件搜索未发现 `SSH Onboard` / `ssh-onboard` 的精确同名项目。名称已由项目所有者确认；该结果不构成商标或法律可用性保证。项目与 Microsoft 无隶属或背书关系，Remote - SSH 是其各自权利人的产品。
+## Security model
+
+- Passwords, passphrases, and OTPs are never persisted or logged.
+- Authentication is not attempted before a host fingerprint is shown and trusted.
+- SSH Onboard does not disable host-key checking or use `/dev/null` as `known_hosts`.
+- Managed private-key ACLs allow only the current Windows user and `SYSTEM`.
+- Existing `authorized_keys` bytes are preserved; unsafe ownership, layout, links, or concurrent edits stop the operation.
+- Final success requires system OpenSSH to complete a BatchMode login using the exact managed identity.
+- Exported profiles omit passwords, keys, key paths, and host trust records.
+
+Read [SECURITY.md](SECURITY.md) before using preview builds with valuable infrastructure. Report vulnerabilities through its private reporting channel, not a public issue.
+
+## Project documents
+
+- [Product specification](docs/PRODUCT_SPEC.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Security design and threat model](docs/SECURITY.md)
+- [Development and release plan](docs/DEVELOPMENT_PLAN.md)
+- [Contributing](CONTRIBUTING.md)
+- [Support](SUPPORT.md)
+
+## License and naming
+
+SSH Onboard is released under the [MIT License](LICENSE). Third-party notices are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+The project is not affiliated with or endorsed by Microsoft. “Remote - SSH” and other product names belong to their respective owners.

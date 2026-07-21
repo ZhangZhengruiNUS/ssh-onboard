@@ -2,6 +2,8 @@
 
 SSH Onboard is developed in small, reviewable changes. Before proposing code, read the [product scope](docs/PRODUCT_SPEC.md), [architecture](docs/ARCHITECTURE.md), and [security model](docs/SECURITY.md).
 
+Participation is governed by the [Code of Conduct](CODE_OF_CONDUCT.md).
+
 ## Local setup
 
 Use Node.js 24 and npm 11.x, as declared by the repository toolchain checks:

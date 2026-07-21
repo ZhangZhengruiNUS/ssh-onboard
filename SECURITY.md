@@ -10,6 +10,6 @@ The project has not published a stable release yet. Security fixes will target t
 
 Use [GitHub private vulnerability reporting](https://github.com/ZhangZhengruiNUS/ssh-onboard/security/advisories/new). Do not open a public issue for a suspected vulnerability.
 
-Include the affected version, impact, minimal reproduction, and any suggested mitigation. Remove real passwords, private keys, server addresses, usernames, and host lists. The maintainer will acknowledge a valid private report as soon as practical and coordinate disclosure after a fix is available.
+Include the affected version, impact, minimal reproduction, and any suggested mitigation. Remove real passwords, private keys, server addresses, usernames, and host lists. The maintainer will acknowledge a private report within 3 business days and provide an initial assessment within 7 calendar days. Fix and disclosure timing depends on severity and coordination needs; reporters will receive a status update at least every 14 calendar days until resolution.
 
 For the project's threat model and implementation requirements, see [docs/SECURITY.md](docs/SECURITY.md).

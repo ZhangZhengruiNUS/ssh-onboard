@@ -91,8 +91,9 @@ VS Code 扩展并非系统安全沙箱。安装扩展意味着用户信任发布
 - 不重写用户所有 Host 块，不生成 `Host *`、`Match`、`ProxyCommand` 或任意命令。
 - Alias 必须在受控字符集内，并检查用户现有配置和受管配置中的冲突。
 - Include 修改前备份；源 hash 变化时拒绝覆盖。
+- Windows 上必须能明确读取安全描述符并验证精确 DACL。owner 通过 Windows 原生 `GetNamedSecurityInfoW` 契约读取；仅当 API 成功、返回有效 security descriptor 且 owner SID 指针为空时才判定为明确缺失。owner 可读取为当前用户、Administrators、SYSTEM，或明确缺失；owner 明确缺失时，只有在 DACL 已关闭继承、且恰好以正确继承标志向当前用户和 SYSTEM 各授予一条 FullControl ACE 时才接受。owner 读取异常、模糊结果、未知非空 SID，或无法持久化精确 DACL 时安全中止。
 - 受管文件每次写后使用 `ssh -G` 验证 HostName、User、Port、IdentityFile、known_hosts 和认证策略。
-- BatchMode 使用不 Include 用户配置、且只写一条目标 IdentityFile 的一次性最小配置；`ssh -G` 必须证明展开结果恰好只有目标 IdentityFile，CertificateFile 为 none，且 ProxyCommand、ProxyJump、HostKeyAlias、LocalCommand 不改变身份、路由或执行行为。
+- BatchMode 使用不 Include 用户配置、且只写一条目标 IdentityFile 的一次性最小配置；`ssh -G` 必须证明展开结果恰好只有目标 IdentityFile，CertificateFile 为 none，ProxyCommand/ProxyJump/LocalCommand 不改变身份、路由或执行行为，并且 HostKeyAlias 精确等于 `ssh-onboard-<profile UUID>`。受管 `known_hosts` 只用这一固定别名绑定该 profile 已确认的 exact key，以隔离共享 endpoint 的不同 profile。
 - 错误输出不得包含完整主机清单；用户主动打开 Diagnostics 时才显示脱敏值。
 
 ## 5. Workspace Trust 与网络

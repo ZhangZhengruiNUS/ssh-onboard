@@ -10,7 +10,7 @@
 - **GitHub Release**：创建带 tag 的可下载 VSIX，才属于公开可安装版本。
 - **Marketplace publish**：提供搜索发现和自动更新，是稳定版之后的独立发布动作。
 
-本地在第一次 push 前至少完成文档评审、脚手架、静态检查和基础测试。完整真实 SSH 端到端测试通过前，不创建 GitHub Release；预发布反馈稳定前，不上传 Marketplace。
+本地在第一次 push 前至少完成文档评审、脚手架、静态检查和基础测试。GitHub Preview 可以在明确标注未完成真实端到端验证的前提下用于收集测试反馈；完整真实 Windows → Linux → Remote - SSH 端到端测试通过前，不创建稳定 GitHub Release；预发布反馈稳定前，不上传 Marketplace。
 
 ## 2. 已锁定决策
 
@@ -71,7 +71,7 @@
 
 - `ssh.exe`、`ssh-keygen.exe`、可选 `ssh-agent` 能力探测。
 - 默认每主机 Ed25519 生成、独占路径和 Windows ACL 验证。
-- 已有未加密密钥验证；agent 中加密密钥匹配。
+- 已有未加密密钥验证；agent 中加密密钥支持推迟到 V0.2+。
 - 共享组密钥风险确认和影响主机列表。
 
 检查：路径含空格/中文、不覆盖已有文件、错误 ACL、丢失 `.pub`、agent 未运行。
@@ -251,6 +251,8 @@ PR 和 main push 触发：
 5. 创建 GitHub Pre-release 并上传同一组不可变资产；
 6. 发布说明列出支持范围、已知限制、安装与校验命令。
 
+首个 Preview 的最低证据为：Windows/Ubuntu CI、Windows OpenSSH 配置集成测试、VS Code Extension Host 测试、依赖漏洞与签名审计、VSIX 文件白名单、隔离 VS Code Profile 安装验证。若尚无真实 Linux 服务器端到端证据，Release 标题和说明必须使用 Preview，并将“密码引导、公钥部署、原生 Remote - SSH 打开默认目录尚待真实环境验证”列为已知限制。
+
 预发布建议从 `0.1.0` 开始；真实用户验证完成后再发布稳定 tag。版本遵循 SemVer，CHANGELOG 遵循 Keep a Changelog，提交采用 Conventional Commits。
 
 ### Marketplace
@@ -267,7 +269,7 @@ Publisher ID 是 Marketplace 必需且创建后不可随意更改，但本地开
 - hostVerifier 缺失或主机变化可被绕过；
 - `authorized_keys`/config 文件完整性测试不稳定；
 - BatchMode 可能使用非目标 agent key；
-- 没有真实 Windows → Linux → Remote - SSH 端到端证据；
+- 稳定版没有真实 Windows → Linux → Remote - SSH 端到端证据；
 - 高危或严重依赖漏洞未处理；
 - Release VSIX 与被测试 VSIX 不是同一 SHA-256。
 

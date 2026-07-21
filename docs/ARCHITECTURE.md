@@ -185,7 +185,7 @@ sequenceDiagram
 ### 7.2 已有与共享密钥
 
 - 未加密已有私钥：用 `ssh-keygen -y` 派生公钥并核对指纹。
-- 加密已有私钥：要求用户预先加载到 Windows `ssh-agent`，通过 `ssh-add -L` 匹配公钥；插件不采集 passphrase。
+- V0.1 的已有密钥模式只接受可由 `ssh-keygen -y` 无交互读取的私钥；加密私钥和 agent-backed 身份推迟到后续版本，避免验证链与 `IdentityAgent none` 的隔离策略冲突。
 - 共享组密钥：Group 保存唯一 key reference；变更前展示所有受影响主机，轮换需要逐台验证成功后才更新状态。
 
 ## 8. `authorized_keys` 更新
@@ -220,7 +220,7 @@ ssh -F <isolated-minimal-config>
     -T <managed-alias> true
 ```
 
-隔离配置只写一条目标 `IdentityFile`，并设置 `CertificateFile none`、`ProxyCommand none`、`ProxyJump none`、`PermitLocalCommand no`、`UpdateHostKeys no`。执行认证前先用 `ssh -G -F <isolated-minimal-config> <alias>` 检查：展开结果恰好只有目标 `IdentityFile`，不存在证书，路由仍为直接目标，且没有 HostKeyAlias、LocalCommand 或其他会改变身份、路由及本地执行行为的选项；任何平台默认值导致断言失败都视为不受支持并硬失败。
+隔离配置只写一条目标 `IdentityFile`，并设置 `CertificateFile none`、`ProxyCommand none`、`ProxyJump none`、`PermitLocalCommand no`、`UpdateHostKeys no`。每个 profile 固定使用 `HostKeyAlias ssh-onboard-<profile UUID>`，并只在受管 `known_hosts` 中为该别名写入该 profile 已确认的 exact key，从而隔离指向同一 endpoint 的多个 profile。执行认证前先用 `ssh -G -F <isolated-minimal-config> <alias>` 检查：展开结果恰好只有目标 `IdentityFile`，不存在证书，路由仍为直接目标，HostKeyAlias 恰好等于该 UUID 别名，且没有 LocalCommand 或其他会改变身份、路由及本地执行行为的选项；任何平台默认值导致断言失败都视为不受支持并硬失败。
 
 只有验证命令退出码 0 才可标记 `Ready`。随后用同一隔离配置执行固定命令探测并保存 `resolvedHome`，再检查 `defaultPath ?? resolvedHome` 是否存在且可进入；目录失败不撤销密钥，而是阻止自动打开并要求修正路径。
 
