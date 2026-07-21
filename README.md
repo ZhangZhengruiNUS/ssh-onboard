@@ -2,7 +2,7 @@
 
 [简体中文](README.zh-CN.md)
 
-> Preview software. SSH Onboard is being prepared for its first downloadable GitHub release.
+> Preview software. Test with a disposable server before using valuable infrastructure. Download the current build from [GitHub Releases](https://github.com/ZhangZhengruiNUS/ssh-onboard/releases).
 
 SSH Onboard turns the one-time SSH key setup into a guided workflow, then hands everyday remote development back to Microsoft's Remote - SSH extension.
 
@@ -49,7 +49,7 @@ Root accounts, jump hosts, MFA, nonstandard `AuthorizedKeysFile` layouts, encryp
 
 ## Install
 
-When a GitHub release is available:
+To install the current GitHub Preview:
 
 1. Download `ssh-onboard-<version>.vsix` from [Releases](https://github.com/ZhangZhengruiNUS/ssh-onboard/releases).
 2. In VS Code, run **Extensions: Install from VSIX...**.
@@ -63,7 +63,7 @@ npm run check
 npm run package:vsix
 ```
 
-Install the generated `artifacts/ssh-onboard.vsix` only in a test VS Code profile until the release notes say otherwise.
+Install the generated `artifacts/ssh-onboard-<version>.vsix` only in a test VS Code profile until the release notes say otherwise.
 
 ## Use
 
