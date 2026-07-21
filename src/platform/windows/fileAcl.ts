@@ -1,15 +1,38 @@
+import { lstat, mkdir } from 'node:fs/promises';
+import path from 'node:path';
+
 import { DomainError } from '../../core/domainError';
 import type { ProcessRunner } from './processRunner';
 
 export class WindowsFileAcl {
   public constructor(private readonly runner: ProcessRunner) {}
 
-  public async restrictPrivateKey(filePath: string): Promise<void> {
-    await this.restrict(filePath, false);
+  public async restrictPrivateKey(filePath: string, createdByUs = false): Promise<void> {
+    await this.restrict(filePath, false, false, createdByUs);
   }
 
   public async restrictDirectory(directoryPath: string): Promise<void> {
     await this.restrict(directoryPath, true);
+  }
+
+  public async ensureRestrictedDirectory(directoryPath: string): Promise<void> {
+    await mkdir(path.dirname(directoryPath), { recursive: true });
+    let createdByUs = false;
+    try {
+      await mkdir(directoryPath);
+      createdByUs = true;
+    } catch (error: unknown) {
+      if (!isAlreadyExists(error)) {
+        throw new DomainError('KEY_GENERATION_FAILED', 'directory-create');
+      }
+    }
+    const stats = await lstat(directoryPath).catch(() => {
+      throw new DomainError('KEY_GENERATION_FAILED', 'directory-stat');
+    });
+    if (!stats.isDirectory() || stats.isSymbolicLink()) {
+      throw new DomainError('KEY_GENERATION_FAILED', 'unsafe-directory');
+    }
+    await this.restrict(directoryPath, true, false, createdByUs);
   }
 
   public async assertDirectorySafe(directoryPath: string): Promise<void> {
@@ -20,7 +43,12 @@ export class WindowsFileAcl {
     await this.restrict(filePath, false, true);
   }
 
-  private async restrict(targetPath: string, directory: boolean, checkOnly = false): Promise<void> {
+  private async restrict(
+    targetPath: string,
+    directory: boolean,
+    checkOnly = false,
+    createdByUs = false,
+  ): Promise<void> {
     if (process.platform !== 'win32') {
       throw new DomainError('UNSUPPORTED_PLATFORM');
     }
@@ -28,6 +56,7 @@ export class WindowsFileAcl {
       '$request = [Console]::In.ReadToEnd() | ConvertFrom-Json',
       '$target = [string]$request.target',
       '$mode = [string]$request.mode',
+      '$createdByUs = [bool]$request.createdByUs',
       '$identity = [System.Security.Principal.WindowsIdentity]::GetCurrent()',
       '$current = $identity.User',
       "$system = [System.Security.Principal.SecurityIdentifier]::new('S-1-5-18')",
@@ -40,8 +69,9 @@ export class WindowsFileAcl {
       '$owner = ([System.Security.Principal.NTAccount]$existing.Owner).Translate([System.Security.Principal.SecurityIdentifier])',
       '$ownerIsCurrent = $owner.Value -eq $current.Value',
       '$ownerIsNormalizableAdministrators = $owner.Value -eq $administrators.Value -and $isAdministratorsMember',
+      '$ownerIsNormalizable = $ownerIsNormalizableAdministrators -or $createdByUs',
       'if ($checkOnly -and -not $ownerIsCurrent) { exit 43 }',
-      'if (-not $ownerIsCurrent -and -not $ownerIsNormalizableAdministrators) { exit 43 }',
+      'if (-not $ownerIsCurrent -and -not $ownerIsNormalizable) { exit 43 }',
       '$allowed = @($current.Value, $system.Value)',
       '$expectedInheritance = if ($isDirectory) { [System.Security.AccessControl.InheritanceFlags]::ContainerInherit -bor [System.Security.AccessControl.InheritanceFlags]::ObjectInherit } else { [System.Security.AccessControl.InheritanceFlags]::None }',
       '$existingBad = @($existing.Access | Where-Object { $_.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value -notin $allowed -or $_.AccessControlType -ne [System.Security.AccessControl.AccessControlType]::Allow -or $_.FileSystemRights -ne [System.Security.AccessControl.FileSystemRights]::FullControl -or $_.InheritanceFlags -ne $expectedInheritance -or $_.PropagationFlags -ne [System.Security.AccessControl.PropagationFlags]::None })',
@@ -66,6 +96,7 @@ export class WindowsFileAcl {
       args: ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', script],
       nonSecretInput: JSON.stringify({
         target: targetPath,
+        createdByUs,
         mode: checkOnly
           ? directory
             ? 'check-directory'
@@ -81,4 +112,12 @@ export class WindowsFileAcl {
       throw new DomainError('KEY_GENERATION_FAILED', `acl:${String(result.exitCode)}`);
     }
   }
+}
+
+function isAlreadyExists(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    (error as NodeJS.ErrnoException).code === 'EEXIST'
+  );
 }

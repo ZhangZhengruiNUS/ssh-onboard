@@ -72,8 +72,7 @@ export class SshConfigService {
     profiles: readonly ServerProfile[],
     paths: SshConfigPaths,
   ): Promise<void> {
-    await mkdir(paths.managedDirectory, { recursive: true });
-    await this.acl.restrictDirectory(paths.managedDirectory);
+    await this.acl.ensureRestrictedDirectory(paths.managedDirectory);
     await this.assertRegularOrMissing(paths.knownHosts);
     await this.assertRegularOrMissing(paths.managedState);
     const lockPath = path.join(paths.managedDirectory, '.lock');
@@ -119,8 +118,7 @@ export class SshConfigService {
     paths: SshConfigPaths,
   ): Promise<void> {
     await mkdir(path.dirname(paths.userConfig), { recursive: true });
-    await mkdir(paths.managedDirectory, { recursive: true });
-    await this.acl.restrictDirectory(paths.managedDirectory);
+    await this.acl.ensureRestrictedDirectory(paths.managedDirectory);
     await this.assertRegularOrMissing(paths.userConfig);
     await this.assertRegularOrMissing(paths.managedConfig);
     await this.assertRegularOrMissing(paths.knownHosts);

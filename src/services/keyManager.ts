@@ -1,4 +1,4 @@
-import { access, mkdir, readFile } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -34,10 +34,11 @@ export class KeyManager {
   ): Promise<LocalKeyReference> {
     const keyId = strategy.keyId;
     const keysDirectory = path.join(os.homedir(), '.ssh', 'ssh-onboard', 'keys');
+    const managedDirectory = path.dirname(keysDirectory);
     const privateKeyPath = path.join(keysDirectory, `${keyId}_ed25519`);
     const publicKeyPath = `${privateKeyPath}.pub`;
-    await mkdir(keysDirectory, { recursive: true });
-    await this.acl.restrictDirectory(keysDirectory);
+    await this.acl.ensureRestrictedDirectory(managedDirectory);
+    await this.acl.ensureRestrictedDirectory(keysDirectory);
     const relative = path.relative(keysDirectory, privateKeyPath);
     if (relative.startsWith('..') || path.isAbsolute(relative)) {
       throw new DomainError('KEY_GENERATION_FAILED', 'managed-key-path');
@@ -48,7 +49,8 @@ export class KeyManager {
     if (privateExists !== publicExists) {
       throw new DomainError('KEY_GENERATION_FAILED', 'partial-keypair');
     }
-    if (!privateExists) {
+    const generatedNow = !privateExists;
+    if (generatedNow) {
       await this.runner.runChecked({
         executable: tools.sshKeygen,
         args: [
@@ -66,7 +68,7 @@ export class KeyManager {
         errorCode: 'KEY_GENERATION_FAILED',
       });
     }
-    await this.acl.restrictPrivateKey(privateKeyPath);
+    await this.acl.restrictPrivateKey(privateKeyPath, generatedNow);
     return this.readReference(keyId, privateKeyPath, publicKeyPath, profile.id);
   }
 

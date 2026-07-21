@@ -98,7 +98,7 @@ suite('Windows platform integration', function () {
         args: ['-q', '-t', 'ed25519', '-f', generatedKey, '-N', '', '-C', 'ssh-onboard-test'],
         errorCode: 'KEY_GENERATION_FAILED',
       });
-      await acl.restrictPrivateKey(generatedKey);
+      await acl.restrictPrivateKey(generatedKey, true);
       await acl.assertPrivateKeySafe(generatedKey);
       const derived = await runner.runChecked({
         executable: tools.sshKeygen,
