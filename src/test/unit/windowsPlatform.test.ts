@@ -18,7 +18,7 @@ suite('Windows platform integration', function () {
     const temporary = await mkdtemp(path.join(os.tmpdir(), 'ssh-onboard-test-'));
     try {
       const runner = new ProcessRunner();
-      const acl = new WindowsFileAcl(runner);
+      const acl = new WindowsFileAcl(runner, true);
       const openssh = new WindowsOpenSsh(runner);
       const tools = await openssh.discover();
       const service = new SshConfigService(runner, acl);

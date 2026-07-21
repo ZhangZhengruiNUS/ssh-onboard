@@ -5,7 +5,10 @@ import { DomainError } from '../../core/domainError';
 import type { ProcessRunner } from './processRunner';
 
 export class WindowsFileAcl {
-  public constructor(private readonly runner: ProcessRunner) {}
+  public constructor(
+    private readonly runner: ProcessRunner,
+    private readonly diagnostics = false,
+  ) {}
 
   public async restrictPrivateKey(filePath: string, createdByUs = false): Promise<void> {
     await this.restrict(filePath, false, false, createdByUs);
@@ -57,6 +60,7 @@ export class WindowsFileAcl {
       '$target = [string]$request.target',
       '$mode = [string]$request.mode',
       '$createdByUs = [bool]$request.createdByUs',
+      '$diagnostics = [bool]$request.diagnostics',
       '$identity = [System.Security.Principal.WindowsIdentity]::GetCurrent()',
       '$current = $identity.User',
       "$system = [System.Security.Principal.SecurityIdentifier]::new('S-1-5-18')",
@@ -86,7 +90,7 @@ export class WindowsFileAcl {
       "if ($intermediateOwner.Value -ne $current.Value -and $intermediateOwner.Value -ne $administrators.Value -and $intermediateOwner.Value -ne $system.Value) { & $icacls $target /setowner ('*' + $current.Value) /L /Q | Out-Null; if ($LASTEXITCODE -ne 0) { exit 45 } }",
       '$actual = Get-Acl -LiteralPath $target -ErrorAction Stop',
       '$actualOwner = ([System.Security.Principal.NTAccount]$actual.Owner).Translate([System.Security.Principal.SecurityIdentifier])',
-      'if ($actualOwner.Value -ne $current.Value -and $actualOwner.Value -ne $administrators.Value -and $actualOwner.Value -ne $system.Value) { exit 44 }',
+      'if ($actualOwner.Value -ne $current.Value -and $actualOwner.Value -ne $administrators.Value -and $actualOwner.Value -ne $system.Value) { if ($diagnostics) { [Console]::Out.Write($actualOwner.Value) }; exit 44 }',
       '$bad = @($actual.Access | Where-Object { $_.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value -notin $allowed -or $_.AccessControlType -ne [System.Security.AccessControl.AccessControlType]::Allow -or $_.FileSystemRights -ne [System.Security.AccessControl.FileSystemRights]::FullControl -or $_.InheritanceFlags -ne $expectedInheritance -or $_.PropagationFlags -ne [System.Security.AccessControl.PropagationFlags]::None })',
       '$actualSids = @($actual.Access | ForEach-Object { $_.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value } | Sort-Object -Unique)',
       'if (-not $actual.AreAccessRulesProtected -or $actual.Access.Count -ne 2 -or $bad.Count -ne 0 -or $actualSids.Count -ne 2 -or $current.Value -notin $actualSids -or $system.Value -notin $actualSids) { exit 42 }',
@@ -97,6 +101,7 @@ export class WindowsFileAcl {
       nonSecretInput: JSON.stringify({
         target: targetPath,
         createdByUs,
+        diagnostics: this.diagnostics,
         mode: checkOnly
           ? directory
             ? 'check-directory'
@@ -109,7 +114,14 @@ export class WindowsFileAcl {
       errorCode: 'KEY_GENERATION_FAILED',
     });
     if (result.exitCode !== 0) {
-      throw new DomainError('KEY_GENERATION_FAILED', `acl:${String(result.exitCode)}`);
+      const ownerDiagnostic =
+        this.diagnostics && /^S-1-(?:\d+-)+\d+$/u.test(result.stdout)
+          ? `:owner:${result.stdout}`
+          : '';
+      throw new DomainError(
+        'KEY_GENERATION_FAILED',
+        `acl:${String(result.exitCode)}${ownerDiagnostic}`,
+      );
     }
   }
 }
