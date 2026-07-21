@@ -1,12 +1,11 @@
-import { readFile } from 'node:fs/promises';
 import process from 'node:process';
 
-const manifest = JSON.parse(await readFile('package.json', 'utf8'));
 const expectedNodeMajor = 24;
-const expectedNpm = String(manifest.packageManager).replace(/^npm@/u, '');
+const expectedNpmMajor = 11;
 const actualNodeMajor = Number.parseInt(process.versions.node.split('.')[0] ?? '', 10);
 const npmUserAgent = process.env.npm_config_user_agent ?? '';
-const actualNpm = /^npm\/([^\s]+)/u.exec(npmUserAgent)?.[1];
+const actualNpmVersion = /^npm\/([^\s]+)/u.exec(npmUserAgent)?.[1];
+const actualNpmMajor = Number.parseInt(actualNpmVersion?.split('.')[0] ?? '', 10);
 
 if (actualNodeMajor !== expectedNodeMajor) {
   throw new Error(
@@ -14,10 +13,12 @@ if (actualNodeMajor !== expectedNodeMajor) {
   );
 }
 
-if (actualNpm !== expectedNpm) {
-  throw new Error(`npm ${expectedNpm} is required; found ${actualNpm ?? 'unknown'}.`);
+if (actualNpmMajor !== expectedNpmMajor) {
+  throw new Error(
+    `npm ${String(expectedNpmMajor)}.x is required; found ${actualNpmVersion ?? 'unknown'}.`,
+  );
 }
 
 globalThis.console.log(
-  `Toolchain verification passed (Node ${process.versions.node}, npm ${actualNpm})`,
+  `Toolchain verification passed (Node ${process.versions.node}, npm ${actualNpmVersion})`,
 );

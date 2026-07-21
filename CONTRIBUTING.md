@@ -4,7 +4,7 @@ SSH Onboard is developed in small, reviewable changes. Before proposing code, re
 
 ## Local setup
 
-Use Node.js 24 and npm 11.9.0, as declared by the repository toolchain files:
+Use Node.js 24 and npm 11.x, as declared by the repository toolchain checks:
 
 ```powershell
 npm ci
