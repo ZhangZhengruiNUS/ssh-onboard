@@ -1,4 +1,5 @@
 .github/**
+.tmp/**
 .vscode/**
 .vscode-test/**
 .vscode-test.mjs
@@ -17,7 +18,7 @@ src/**
 .prettierignore
 .prettierrc.json
 CONTRIBUTING.md
-SECURITY.md
+CODE_OF_CONDUCT.md
 eslint.config.mjs
 esbuild.mjs
 package-lock.json

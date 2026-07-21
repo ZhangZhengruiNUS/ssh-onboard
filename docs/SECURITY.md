@@ -92,7 +92,7 @@ VS Code 扩展并非系统安全沙箱。安装扩展意味着用户信任发布
 - Alias 必须在受控字符集内，并检查用户现有配置和受管配置中的冲突。
 - Include 修改前备份；源 hash 变化时拒绝覆盖。
 - 受管文件每次写后使用 `ssh -G` 验证 HostName、User、Port、IdentityFile、known_hosts 和认证策略。
-- BatchMode 使用不 Include 用户配置、且只写一条目标 IdentityFile 的一次性最小配置；`ssh -G` 必须证明展开结果恰好只有目标 IdentityFile，CertificateFile 为 none，且 ProxyCommand、ProxyJump、HostKeyAlias、LocalCommand 不改变身份、路由或执行行为。
+- BatchMode 使用不 Include 用户配置、且只写一条目标 IdentityFile 的一次性最小配置；`ssh -G` 必须证明展开结果恰好只有目标 IdentityFile，CertificateFile 为 none，ProxyCommand/ProxyJump/LocalCommand 不改变身份、路由或执行行为，并且 HostKeyAlias 精确等于 `ssh-onboard-<profile UUID>`。受管 `known_hosts` 只用这一固定别名绑定该 profile 已确认的 exact key，以隔离共享 endpoint 的不同 profile。
 - 错误输出不得包含完整主机清单；用户主动打开 Diagnostics 时才显示脱敏值。
 
 ## 5. Workspace Trust 与网络

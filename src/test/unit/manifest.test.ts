@@ -21,7 +21,7 @@ function readJson<T>(file: string): T {
 }
 
 suite('Extension manifest', () => {
-  test('runs locally and activates lazily without runtime dependencies', () => {
+  test('runs locally and activates lazily with only the audited SSH runtime dependency', () => {
     const manifest = readJson<ExtensionManifest>('package.json');
 
     assert.equal(manifest.name, 'ssh-onboard');
@@ -30,7 +30,7 @@ suite('Extension manifest', () => {
     assert.deepEqual(manifest.extensionPack, ['ms-vscode-remote.remote-ssh']);
     assert.equal(manifest.extensionDependencies, undefined);
     assert.equal(manifest.activationEvents, undefined);
-    assert.equal(manifest.dependencies, undefined);
+    assert.deepEqual(manifest.dependencies, { ssh2: '1.17.0' });
     assert.equal(manifest.capabilities?.untrustedWorkspaces?.supported, true);
     assert.equal(manifest.capabilities?.virtualWorkspaces, true);
   });

@@ -138,11 +138,11 @@ Generated per host
 
 高级策略：
 
-| 策略               | 约束                                                                            |
-| ------------------ | ------------------------------------------------------------------------------- |
-| Existing key       | 用户选择私钥/公钥；加密私钥必须已加载到 Windows ssh-agent，插件不询问或保存口令 |
-| Shared group key   | 必须显示共享该私钥的完整主机列表与风险；组内轮换和撤销作为一个整体              |
-| Generated per host | 可恢复为默认策略并重新初始化                                                    |
+| 策略               | 约束                                                                                  |
+| ------------------ | ------------------------------------------------------------------------------------- |
+| Existing key       | V0.1 支持用户选择可无交互读取的现有私钥/公钥；加密私钥与 ssh-agent 支持推迟到后续版本 |
+| Shared group key   | 必须显示共享该私钥的完整主机列表与风险；组内轮换和撤销作为一个整体                    |
+| Generated per host | 可恢复为默认策略并重新初始化                                                          |
 
 高级选项不能降低主机指纹校验、日志脱敏和 `authorized_keys` 保留要求。
 
@@ -189,7 +189,7 @@ interface ServerProfileV1 {
 
 - VS Code Desktop：最低版本在实现时按实际使用的稳定 API 固定，不追求过旧版本兼容。
 - 本地系统：Windows 10/11 x64。
-- 本地工具：`ssh.exe`、`ssh-keygen.exe`；`ssh-agent` 仅为高级加密密钥模式所需。
+- 本地工具：`ssh.exe`、`ssh-keygen.exe`；V0.1 不依赖 `ssh-agent`。
 - 远端：标准 Linux OpenSSH Server、可写 Home、SFTP 子系统和普通 POSIX 文件语义。
 - 必需扩展：`ms-vscode-remote.remote-ssh`。
 
