@@ -61,6 +61,7 @@ export class WindowsFileAcl {
       '$mode = [string]$request.mode',
       '$createdByUs = [bool]$request.createdByUs',
       '$diagnostics = [bool]$request.diagnostics',
+      'if ($diagnostics) { [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false) }',
       '$identity = [System.Security.Principal.WindowsIdentity]::GetCurrent()',
       '$current = $identity.User',
       "$system = [System.Security.Principal.SecurityIdentifier]::new('S-1-5-18')",
@@ -114,9 +115,13 @@ export class WindowsFileAcl {
       errorCode: 'KEY_GENERATION_FAILED',
     });
     if (result.exitCode !== 0) {
+      const diagnosticOutput = result.stdout
+        .replaceAll('\u0000', '')
+        .replace(/^\uFEFF/u, '')
+        .trim();
       const ownerDiagnostic =
-        this.diagnostics && /^S-1-(?:\d+-)+\d+$/u.test(result.stdout)
-          ? `:owner:${result.stdout}`
+        this.diagnostics && /^S-1-(?:\d+-)+\d+$/u.test(diagnosticOutput)
+          ? `:owner:${diagnosticOutput}`
           : '';
       throw new DomainError(
         'KEY_GENERATION_FAILED',
