@@ -58,7 +58,14 @@ suite('Windows platform integration', function () {
         },
       };
 
-      await service.persistKnownHosts([profile], paths);
+      try {
+        await service.persistKnownHosts([profile], paths);
+      } catch (error: unknown) {
+        if (error instanceof DomainError) {
+          throw new Error(`${error.code}:${error.detail ?? 'no-detail'}`, { cause: error });
+        }
+        throw error;
+      }
       await acl.assertDirectorySafe(paths.managedDirectory);
       assert.match(await readFile(paths.knownHosts, 'utf8'), /^ssh-onboard-/u);
       await assert.rejects(readFile(paths.userConfig), { code: 'ENOENT' });
