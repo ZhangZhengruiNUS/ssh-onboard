@@ -62,7 +62,29 @@ suite('Windows platform integration', function () {
         await service.persistKnownHosts([profile], paths);
       } catch (error: unknown) {
         if (error instanceof DomainError) {
-          throw new Error(`${error.code}:${error.detail ?? 'no-detail'}`, { cause: error });
+          const diagnostic = await runner.run({
+            executable: 'powershell.exe',
+            args: [
+              '-NoLogo',
+              '-NoProfile',
+              '-NonInteractive',
+              '-Command',
+              [
+                '$target = [Console]::In.ReadToEnd()',
+                '$identity = [System.Security.Principal.WindowsIdentity]::GetCurrent()',
+                '$owner = (Get-Acl -LiteralPath $target -ErrorAction Stop).Owner',
+                '[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)',
+                '[Console]::Out.WriteLine("owner=$owner")',
+                '[Console]::Out.WriteLine("current=" + $identity.User.Value)',
+              ].join('; '),
+            ],
+            nonSecretInput: paths.managedDirectory,
+            errorCode: 'KEY_GENERATION_FAILED',
+          });
+          throw new Error(
+            `${error.code}:${error.detail ?? 'no-detail'}:${diagnostic.stdout.trim()}`,
+            { cause: error },
+          );
         }
         throw error;
       }
