@@ -61,7 +61,7 @@ export class WindowsFileAcl {
       '$current = $identity.User',
       "$system = [System.Security.Principal.SecurityIdentifier]::new('S-1-5-18')",
       "$administrators = [System.Security.Principal.SecurityIdentifier]::new('S-1-5-32-544')",
-      'function Read-OwnerSid($acl) { $sections = [System.Security.AccessControl.AccessControlSections]::Owner -bor [System.Security.AccessControl.AccessControlSections]::Access; try { $securitySddl = $acl.GetSecurityDescriptorSddlForm($sections) } catch { exit 46 }; if ($null -eq $securitySddl -or [string]::IsNullOrWhiteSpace($securitySddl)) { exit 46 }; try { $descriptor = [System.Security.AccessControl.RawSecurityDescriptor]::new($securitySddl) } catch { exit 46 }; $value = $descriptor.Owner; if ($null -eq $value) { return $null }; if ([string]::IsNullOrWhiteSpace($value.Value)) { exit 46 }; return $value }',
+      'function Read-OwnerSid($acl) { try { $securityBytes = $acl.GetSecurityDescriptorBinaryForm() } catch { exit 46 }; if ($null -eq $securityBytes -or $securityBytes.Length -eq 0) { exit 46 }; try { $descriptor = [System.Security.AccessControl.RawSecurityDescriptor]::new($securityBytes, 0) } catch { exit 46 }; $value = $descriptor.Owner; if ($null -eq $value) { return $null }; if ([string]::IsNullOrWhiteSpace($value.Value)) { exit 46 }; return $value }',
       "$isDirectory = $mode -eq 'directory' -or $mode -eq 'check-directory'",
       "$checkOnly = $mode.StartsWith('check-')",
       '$existing = Get-Acl -LiteralPath $target -ErrorAction Stop',
