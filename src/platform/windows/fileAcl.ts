@@ -12,6 +12,10 @@ export class WindowsFileAcl {
     await this.restrict(directoryPath, true);
   }
 
+  public async assertDirectorySafe(directoryPath: string): Promise<void> {
+    await this.restrict(directoryPath, true, true);
+  }
+
   public async assertPrivateKeySafe(filePath: string): Promise<void> {
     await this.restrict(filePath, false, true);
   }
@@ -24,31 +28,50 @@ export class WindowsFileAcl {
       '$request = [Console]::In.ReadToEnd() | ConvertFrom-Json',
       '$target = [string]$request.target',
       '$mode = [string]$request.mode',
-      '$current = [System.Security.Principal.WindowsIdentity]::GetCurrent().User',
+      '$identity = [System.Security.Principal.WindowsIdentity]::GetCurrent()',
+      '$current = $identity.User',
       "$system = [System.Security.Principal.SecurityIdentifier]::new('S-1-5-18')",
-      "$isDirectory = $mode -eq 'directory'",
+      "$administrators = [System.Security.Principal.SecurityIdentifier]::new('S-1-5-32-544')",
+      '$principal = [System.Security.Principal.WindowsPrincipal]::new($identity)',
+      "$isDirectory = $mode -eq 'directory' -or $mode -eq 'check-directory'",
+      "$checkOnly = $mode.StartsWith('check-')",
       '$existing = Get-Acl -LiteralPath $target -ErrorAction Stop',
       '$owner = ([System.Security.Principal.NTAccount]$existing.Owner).Translate([System.Security.Principal.SecurityIdentifier])',
-      'if ($owner.Value -ne $current.Value) { exit 43 }',
+      '$ownerIsCurrent = $owner.Value -eq $current.Value',
+      '$ownerIsNormalizableAdministrators = $owner.Value -eq $administrators.Value -and $principal.IsInRole($administrators)',
+      'if ($checkOnly -and -not $ownerIsCurrent) { exit 43 }',
+      'if (-not $ownerIsCurrent -and -not $ownerIsNormalizableAdministrators) { exit 43 }',
       '$allowed = @($current.Value, $system.Value)',
-      "$existingBad = @($existing.Access | Where-Object { $_.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value -notin $allowed -or $_.AccessControlType -ne 'Allow' -or ($_.FileSystemRights -band [System.Security.AccessControl.FileSystemRights]::FullControl) -eq 0 })",
+      '$expectedInheritance = if ($isDirectory) { [System.Security.AccessControl.InheritanceFlags]::ContainerInherit -bor [System.Security.AccessControl.InheritanceFlags]::ObjectInherit } else { [System.Security.AccessControl.InheritanceFlags]::None }',
+      '$existingBad = @($existing.Access | Where-Object { $_.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value -notin $allowed -or $_.AccessControlType -ne [System.Security.AccessControl.AccessControlType]::Allow -or $_.FileSystemRights -ne [System.Security.AccessControl.FileSystemRights]::FullControl -or $_.InheritanceFlags -ne $expectedInheritance -or $_.PropagationFlags -ne [System.Security.AccessControl.PropagationFlags]::None })',
       '$existingSids = @($existing.Access | ForEach-Object { $_.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value } | Sort-Object -Unique)',
-      "if ($mode -eq 'check-file') { if (-not $existing.AreAccessRulesProtected -or $existingBad.Count -ne 0 -or $current.Value -notin $existingSids) { exit 42 }; exit 0 }",
-      'if ($existing.AreAccessRulesProtected -and $existingBad.Count -eq 0 -and $existingSids.Count -eq 2 -and $current.Value -in $existingSids -and $system.Value -in $existingSids) { exit 0 }',
+      '$existingExact = $existing.AreAccessRulesProtected -and $existing.Access.Count -eq 2 -and $existingBad.Count -eq 0 -and $existingSids.Count -eq 2 -and $current.Value -in $existingSids -and $system.Value -in $existingSids',
+      'if ($checkOnly) { if (-not $existingExact) { exit 42 }; exit 0 }',
+      'if ($ownerIsCurrent -and $existingExact) { exit 0 }',
       '$acl = $existing',
+      'if (-not $ownerIsCurrent) { $acl.SetOwner($current) }',
       "$dacl = if ($isDirectory) { 'D:P(A;OICI;FA;;;' + $current.Value + ')(A;OICI;FA;;;SY)' } else { 'D:P(A;;FA;;;' + $current.Value + ')(A;;FA;;;SY)' }",
       '$acl.SetSecurityDescriptorSddlForm($dacl, [System.Security.AccessControl.AccessControlSections]::Access)',
       'if ($isDirectory) { [System.IO.Directory]::SetAccessControl($target, $acl) } else { [System.IO.File]::SetAccessControl($target, $acl) }',
       '$actual = Get-Acl -LiteralPath $target -ErrorAction Stop',
-      "$bad = @($actual.Access | Where-Object { $_.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value -notin $allowed -or $_.AccessControlType -ne 'Allow' -or ($_.FileSystemRights -band [System.Security.AccessControl.FileSystemRights]::FullControl) -eq 0 })",
-      'if ($bad.Count -ne 0) { exit 42 }',
+      '$actualOwner = ([System.Security.Principal.NTAccount]$actual.Owner).Translate([System.Security.Principal.SecurityIdentifier])',
+      'if ($actualOwner.Value -ne $current.Value) { exit 43 }',
+      '$bad = @($actual.Access | Where-Object { $_.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value -notin $allowed -or $_.AccessControlType -ne [System.Security.AccessControl.AccessControlType]::Allow -or $_.FileSystemRights -ne [System.Security.AccessControl.FileSystemRights]::FullControl -or $_.InheritanceFlags -ne $expectedInheritance -or $_.PropagationFlags -ne [System.Security.AccessControl.PropagationFlags]::None })',
+      '$actualSids = @($actual.Access | ForEach-Object { $_.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value } | Sort-Object -Unique)',
+      'if (-not $actual.AreAccessRulesProtected -or $actual.Access.Count -ne 2 -or $bad.Count -ne 0 -or $actualSids.Count -ne 2 -or $current.Value -notin $actualSids -or $system.Value -notin $actualSids) { exit 42 }',
     ].join('; ');
     const result = await this.runner.run({
       executable: 'powershell.exe',
       args: ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', script],
       nonSecretInput: JSON.stringify({
         target: targetPath,
-        mode: checkOnly ? 'check-file' : directory ? 'directory' : 'file',
+        mode: checkOnly
+          ? directory
+            ? 'check-directory'
+            : 'check-file'
+          : directory
+            ? 'directory'
+            : 'file',
       }),
       timeoutMs: 15_000,
       errorCode: 'KEY_GENERATION_FAILED',

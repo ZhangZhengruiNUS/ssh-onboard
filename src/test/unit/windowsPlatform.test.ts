@@ -59,6 +59,7 @@ suite('Windows platform integration', function () {
       };
 
       await service.persistKnownHosts([profile], paths);
+      await acl.assertDirectorySafe(paths.managedDirectory);
       assert.match(await readFile(paths.knownHosts, 'utf8'), /^ssh-onboard-/u);
       await assert.rejects(readFile(paths.userConfig), { code: 'ENOENT' });
       await assert.rejects(readFile(paths.managedConfig), { code: 'ENOENT' });
@@ -91,6 +92,7 @@ suite('Windows platform integration', function () {
         errorCode: 'KEY_GENERATION_FAILED',
       });
       await acl.restrictPrivateKey(generatedKey);
+      await acl.assertPrivateKeySafe(generatedKey);
       const derived = await runner.runChecked({
         executable: tools.sshKeygen,
         args: ['-y', '-f', generatedKey],
