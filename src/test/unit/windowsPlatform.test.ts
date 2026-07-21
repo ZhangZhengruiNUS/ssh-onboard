@@ -72,9 +72,12 @@ suite('Windows platform integration', function () {
               [
                 '$target = [Console]::In.ReadToEnd()',
                 '$identity = [System.Security.Principal.WindowsIdentity]::GetCurrent()',
-                '$owner = (Get-Acl -LiteralPath $target -ErrorAction Stop).Owner',
+                '$acl = Get-Acl -LiteralPath $target -ErrorAction Stop',
+                '$owner = $acl.Owner',
+                '$ownerSid = $acl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value',
                 '[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)',
                 '[Console]::Out.WriteLine("owner=$owner")',
+                '[Console]::Out.WriteLine("ownerSid=$ownerSid")',
                 '[Console]::Out.WriteLine("current=" + $identity.User.Value)',
               ].join('; '),
             ],
