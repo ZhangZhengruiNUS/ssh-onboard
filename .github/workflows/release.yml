@@ -83,18 +83,7 @@ jobs:
         run: npm sbom --omit=dev --sbom-format cyclonedx | Out-File -Encoding utf8 "artifacts/ssh-onboard-$($env:GITHUB_REF_NAME.Substring(1)).sbom.cdx.json"
 
       - name: Install the exact VSIX in an isolated VS Code profile
-        shell: pwsh
-        run: |
-          $root = Join-Path $env:RUNNER_TEMP 'ssh-onboard-install-smoke'
-          $userData = Join-Path $root 'user-data'
-          $extensions = Join-Path $root 'extensions'
-          New-Item -ItemType Directory -Path $userData, $extensions -Force | Out-Null
-          $vsix = (Get-ChildItem artifacts/*.vsix -File -ErrorAction Stop).FullName
-          code --user-data-dir $userData --extensions-dir $extensions --install-extension $vsix --force
-          if ($LASTEXITCODE -ne 0) { throw 'VSIX installation failed' }
-          [string[]]$installed = code --user-data-dir $userData --extensions-dir $extensions --list-extensions --show-versions
-          $expected = "zhangzhengruinus.ssh-onboard@$($env:GITHUB_REF_NAME.Substring(1))"
-          if ($installed -notcontains $expected) { throw "Installed extension mismatch: $expected" }
+        run: node scripts/smoke-install-vsix.mjs
 
       - name: Attest VSIX build provenance
         uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0

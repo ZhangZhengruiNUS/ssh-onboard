@@ -6,6 +6,12 @@ The project follows [Semantic Versioning](https://semver.org/) after its first p
 
 ## [Unreleased]
 
+## [0.1.0-preview.2] - 2026-07-21
+
+### Fixed
+
+- Release smoke tests now download an isolated VS Code build instead of assuming the `code` command is available on GitHub-hosted Windows runners.
+
 ## [0.1.0-preview.1] - 2026-07-21
 
 ### Added

@@ -2,7 +2,7 @@
   "name": "ssh-onboard",
   "displayName": "%extension.displayName%",
   "description": "%extension.description%",
-  "version": "0.1.0-preview.1",
+  "version": "0.1.0-preview.2",
   "publisher": "ZhangZhengruiNUS",
   "license": "SEE LICENSE IN LICENSE",
   "private": true,
@@ -212,7 +212,8 @@
     "audit:dependencies": "npm audit --registry=https://registry.npmjs.org --audit-level=high && npm audit signatures --registry=https://registry.npmjs.org",
     "check": "npm run verify:toolchain && npm run format:check && npm run lint:markdown && npm run typecheck && npm run lint && npm run test:unit && npm run package && npm run verify:project && npm run verify:package-files",
     "vsce:ls": "vsce ls",
-    "package:vsix": "npm run package && npm run verify:package-files && node scripts/package-vsix.mjs"
+    "package:vsix": "npm run package && npm run verify:package-files && node scripts/package-vsix.mjs",
+    "smoke:vsix": "node scripts/smoke-install-vsix.mjs"
   },
   "overrides": {
     "mocha": {
