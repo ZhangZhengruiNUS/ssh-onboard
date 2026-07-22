@@ -2,5 +2,7 @@
   "config": {
     // Chinese prose and long official URLs are clearer without an 80-column limit.
     "MD013": false,
+    // Changelog categories intentionally repeat under different release headings.
+    "MD024": { "siblings_only": true },
   },
 }
