@@ -6,6 +6,8 @@ The project follows [Semantic Versioning](https://semver.org/) after its first p
 
 ## [Unreleased]
 
+## [0.1.0-preview.3] - 2026-07-22
+
 ### Added
 
 - Add and Edit now open one accessible, theme-aware editor form with inline validation, alias suggestions, default-folder setup, and advanced key strategies.
@@ -24,6 +26,11 @@ The project follows [Semantic Versioning](https://semver.org/) after its first p
 - Initialization now runs configuration preflight checks before networking, before remote key deployment, and again during the final local commit.
 - Managed SSH state is bound to one local profile authority, committed with state last, and protected by ownership-token locks and rollback on interrupted writes.
 - The host form uses a deny-by-default CSP, exact bounded message schemas, stale-edit detection, and panel-bound anti-replay tokens without exposing key paths or authorization records.
+
+### Known limitations
+
+- This Preview has not yet completed a real Windows-to-Linux password bootstrap, `authorized_keys`, BatchMode, and Remote - SSH default-folder end-to-end test.
+- Use a disposable Linux account and verify the displayed host fingerprint independently before entering a password.
 
 ## [0.1.0-preview.2] - 2026-07-21
 
