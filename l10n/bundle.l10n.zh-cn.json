@@ -38,7 +38,7 @@
   "Paste the expected SHA256 fingerprint from an independent source.": "请粘贴从独立来源获得的预期 SHA256 指纹。",
   "Review host fingerprint": "核对主机指纹",
   "Revoke deployed key": "撤销已部署密钥",
-  "Revoke the exact public key deployed by SSH Onboard for {0}?": "撤销 SSH Onboard 为 {0} 部署的确切公钥？",
+  "Revoke the exact public key deployed by SSH Onboard for {0}? Confirm another login method or a server console is available first; otherwise you may lose SSH access.": "撤销 SSH Onboard 为 {0} 部署的确切公钥？请先确认另一种登录方式或服务器控制台可用，否则你可能失去 SSH 访问权限。",
   "Revoke the key deployed by SSH Onboard before removing this profile.": "删除此资料前，请先撤销 SSH Onboard 部署的密钥。",
   "SSH Onboard V0.1 supports local Windows hosts only.": "SSH Onboard V0.1 仅支持本地 Windows。",
   "SSH alias": "SSH 别名",

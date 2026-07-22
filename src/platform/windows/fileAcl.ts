@@ -32,7 +32,16 @@ export class WindowsFileAcl {
     if (!stats.isDirectory() || stats.isSymbolicLink()) {
       throw new DomainError('KEY_GENERATION_FAILED', 'unsafe-directory');
     }
-    await this.restrict(directoryPath, true, false, createdByUs);
+    if (createdByUs) {
+      await this.restrict(directoryPath, true, false, true);
+      return;
+    }
+
+    // Never take over or rewrite the ACL of a pre-existing directory. A
+    // directory created by an earlier SSH Onboard run already has the exact
+    // protected ACL and passes this read-only check; unknown same-name
+    // directories fail closed without being modified.
+    await this.assertDirectorySafe(directoryPath);
   }
 
   public async assertDirectorySafe(directoryPath: string): Promise<void> {
