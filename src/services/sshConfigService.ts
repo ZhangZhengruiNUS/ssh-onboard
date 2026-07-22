@@ -122,6 +122,21 @@ export class SshConfigService {
     return { ok: true, recovery: snapshot.recovery };
   }
 
+  /**
+   * Lightweight, read-only validation for the Add/Edit form. Full managed
+   * file, ACL, lock, and state checks remain mandatory at Save and Initialize.
+   */
+  public async preflightAlias(
+    source: ProfileSource,
+    paths: SshConfigPaths,
+    projectedHost: ProjectedManagedHost,
+  ): Promise<void> {
+    await this.assertRegularOrMissing(paths.userConfig);
+    const userSource = (await readOptional(paths.userConfig)) ?? Buffer.alloc(0);
+    ensureManagedInclude(userSource, paths.managedConfig);
+    assertNoAliasConflict(userSource, managedAliases(readProfiles(source), projectedHost));
+  }
+
   public async apply(
     source: ProfileSource,
     target: ServerProfile & Required<Pick<ServerProfile, 'localKey'>>,

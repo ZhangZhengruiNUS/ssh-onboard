@@ -2,6 +2,8 @@ artifacts/
 .tmp/
 coverage/
 dist/
+media/hostForm.js
+media/hostForm.js.map
 node_modules/
 out/
 package-lock.json

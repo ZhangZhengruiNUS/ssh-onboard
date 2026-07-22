@@ -6,6 +6,11 @@ The project follows [Semantic Versioning](https://semver.org/) after its first p
 
 ## [Unreleased]
 
+### Added
+
+- Add and Edit now open one accessible, theme-aware editor form with inline validation, alias suggestions, default-folder setup, and advanced key strategies.
+- Existing private keys are selected through the native file picker; the Webview receives only a short label and a short-lived one-use token.
+
 ### Fixed
 
 - Recover only the exact `preview.2` interrupted first-trust layout while leaving unknown managed-file differences untouched.
@@ -18,6 +23,7 @@ The project follows [Semantic Versioning](https://semver.org/) after its first p
 - Pre-existing SSH Onboard directories are validated without rewriting their Windows ACLs.
 - Initialization now runs configuration preflight checks before networking, before remote key deployment, and again during the final local commit.
 - Managed SSH state is bound to one local profile authority, committed with state last, and protected by ownership-token locks and rollback on interrupted writes.
+- The host form uses a deny-by-default CSP, exact bounded message schemas, stale-edit detection, and panel-bound anti-replay tokens without exposing key paths or authorization records.
 
 ## [0.1.0-preview.2] - 2026-07-21
 

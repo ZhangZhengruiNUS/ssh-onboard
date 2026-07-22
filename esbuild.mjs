@@ -4,7 +4,7 @@ import process from 'node:process';
 const production = process.argv.includes('--production');
 const watch = process.argv.includes('--watch');
 
-const context = await esbuild.context({
+const extensionContext = await esbuild.context({
   bundle: true,
   entryPoints: ['src/extension.ts'],
   // ssh2 optionally loads native accelerators inside try/catch blocks. Keep
@@ -21,10 +21,23 @@ const context = await esbuild.context({
   target: 'node22',
 });
 
+const webviewContext = await esbuild.context({
+  bundle: true,
+  entryPoints: ['src/webview/hostFormClient.ts'],
+  format: 'iife',
+  logLevel: 'info',
+  minify: production,
+  outfile: 'media/hostForm.js',
+  platform: 'browser',
+  sourcemap: production ? false : 'linked',
+  sourcesContent: false,
+  target: 'es2022',
+});
+
 if (watch) {
-  await context.watch();
+  await Promise.all([extensionContext.watch(), webviewContext.watch()]);
   globalThis.console.log('[watch] esbuild is watching for changes');
 } else {
-  await context.rebuild();
-  await context.dispose();
+  await Promise.all([extensionContext.rebuild(), webviewContext.rebuild()]);
+  await Promise.all([extensionContext.dispose(), webviewContext.dispose()]);
 }

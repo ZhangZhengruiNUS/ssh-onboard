@@ -8,6 +8,8 @@ export default tseslint.config(
       'artifacts/**',
       'coverage/**',
       'dist/**',
+      'media/hostForm.js',
+      'media/hostForm.js.map',
       'node_modules/**',
       'out/**',
     ],

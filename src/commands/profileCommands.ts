@@ -10,24 +10,27 @@ import type { ProfileStore } from '../services/profileStore';
 import { readRemoteSshSettings } from '../services/remoteSettings';
 import type { SshConfigPaths, SshConfigService } from '../services/sshConfigService';
 import type { HostTreeDataProvider, HostTreeItem } from '../views/hostTreeDataProvider';
-import { promptForProfile } from './profilePrompts';
 
-export async function addHost(profiles: ProfileStore, tree: HostTreeDataProvider): Promise<void> {
-  const draft = await promptForProfile(undefined, (group) => findGroupKeyId(profiles, group));
+export async function addHost(
+  draft: ProfileDraft,
+  profiles: ProfileStore,
+  tree: HostTreeDataProvider,
+): Promise<void> {
   await profiles.add(draft);
   tree.refresh();
 }
 
 export async function editHost(
-  item: HostTreeItem | undefined,
+  profileId: string,
+  draft: ProfileDraft,
   profiles: ProfileStore,
   tree: HostTreeDataProvider,
   sshConfig?: SshConfigService,
+  assertCurrent?: (profile: ServerProfile) => void,
 ): Promise<void> {
-  const selected = item?.profile ?? (await pickProfile(profiles));
   await profiles.withConfigurationOperation(() =>
-    profiles.withProfileOperation(selected.id, async (profile) => {
-      const draft = await promptForProfile(profile, (group) => findGroupKeyId(profiles, group));
+    profiles.withProfileOperation(profileId, async (profile) => {
+      assertCurrent?.(profile);
       await updateProfileAndArtifacts(profile, draft, profiles, sshConfig);
     }),
   );
@@ -257,7 +260,7 @@ export async function pickProfile(
   return selected.profile;
 }
 
-function findGroupKeyId(profiles: ProfileStore, group: string): string | undefined {
+export function findGroupKeyId(profiles: ProfileStore, group: string): string | undefined {
   for (const profile of profiles.list()) {
     if (
       profile.group?.toLowerCase() === group.toLowerCase() &&

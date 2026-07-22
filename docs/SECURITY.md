@@ -103,6 +103,15 @@ VS Code 扩展并非系统安全沙箱。安装扩展意味着用户信任发布
 - BatchMode 使用不 Include 用户配置、且只写一条目标 IdentityFile 的一次性最小配置；`ssh -G` 必须证明展开结果恰好只有目标 IdentityFile，CertificateFile 为 none，ProxyCommand/ProxyJump/LocalCommand 不改变身份、路由或执行行为，并且 HostKeyAlias 精确等于 `ssh-onboard-<profile UUID>`。受管 `known_hosts` 只用这一固定别名绑定该 profile 已确认的 exact key，以隔离共享 endpoint 的不同 profile。
 - 错误输出不得包含完整主机清单；用户主动打开 Diagnostics 时才显示脱敏值。
 
+### 4.6 Add/Edit Webview
+
+- Webview 不是信任边界。所有入站消息先检查 64 KiB 上限、精确字段集合、嵌套 DTO 和类型；未知字段、超大消息、stale revision 全部拒绝。
+- DTO 不包含密码、私钥路径、公钥正文、Host Key、指纹、授权记录、pending authorization 或 deployment marker。
+- Existing Key 选择只发生在 Extension Host 的原生文件选择器。返回表单的随机 token 绑定 panel ID、profile ID 与 revision，十分钟过期，只能成功消费一次，跨 panel、伪造和重放均失败。
+- 编辑会话保存前比较完整 Profile 快照 hash；初始化或另一窗口改变资料后，旧表单不得覆盖新状态。
+- HTML 使用语义标签、明确 label、错误焦点和 `aria-live`。CSP 为 `default-src 'none'`，只允许 nonce 本地脚本和 `media/` 本地样式，`connect-src` 与 `img-src` 均为 `none`。
+- 浏览器校验不授予权限。Extension Host 保存前仍运行 Profile schema、Alias、Remote - SSH 设置和受管配置预检；共享密钥风险确认继续使用原生模态对话框。
+
 ## 5. Workspace Trust 与网络
 
 扩展不读取或执行工作区文件，也不接受 workspace-level 配置。所有敏感设置只来自扩展 UI 与全局本地状态，因此可声明支持 Untrusted Workspaces，但每个修改本地/远端状态的操作仍必须由用户显式触发。

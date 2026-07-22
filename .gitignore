@@ -3,6 +3,8 @@
 artifacts/
 coverage/
 dist/
+media/hostForm.js
+media/hostForm.js.map
 node_modules/
 out/
 *.log
