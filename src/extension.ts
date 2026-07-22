@@ -4,6 +4,7 @@ import { executeCommandSafely } from './commands/executeCommandSafely';
 import {
   connectHost,
   initializeHost,
+  initializeHostById,
   revokeKey,
   testKeyConnection,
   type HostCommandServices,
@@ -30,6 +31,7 @@ import { SshConfigService } from './services/sshConfigService';
 import { VerificationService } from './services/verificationService';
 import { HostTreeDataProvider, type HostTreeItem } from './views/hostTreeDataProvider';
 import { HostFormController } from './webview/hostFormController';
+import { HostKeyReviewController } from './webview/hostKeyReviewController';
 
 const REMOTE_SSH_EXTENSION_ID = 'ms-vscode-remote.remote-ssh';
 
@@ -43,6 +45,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const tree = new HostTreeDataProvider(profiles);
   const runner = new ProcessRunner();
   const acl = new WindowsFileAcl(runner);
+  const hostKeyReview = new HostKeyReviewController(context.extensionUri);
   const services: HostCommandServices = {
     profiles,
     tree,
@@ -54,6 +57,7 @@ export function activate(context: vscode.ExtensionContext): void {
     sshConfig: new SshConfigService(runner, acl, profiles.configurationAuthority),
     verification: new VerificationService(runner),
     launcher: new RemoteSshLauncher(),
+    hostKeyReview,
   };
 
   const command = (
@@ -70,12 +74,17 @@ export function activate(context: vscode.ExtensionContext): void {
     profiles,
     tree,
     sshConfig: services.sshConfig,
+    initializeHost: (profileId) =>
+      executeCommandSafely(logger, 'initialize-host', () =>
+        initializeHostById(profileId, services),
+      ),
     runSafely: (stage, operation) => executeCommandSafely(logger, stage, operation),
   });
 
   context.subscriptions.push(
     output,
     hostForm,
+    hostKeyReview,
     vscode.window.registerTreeDataProvider('sshOnboard.servers', tree),
     vscode.commands.registerCommand('sshOnboard.showLogs', () => logger.show()),
     vscode.commands.registerCommand('sshOnboard.refresh', () => tree.refresh()),

@@ -27,11 +27,13 @@ suite('Host form protocol', () => {
       parseHostFormMessage({
         type: 'save',
         revision: '00000000-0000-4000-8000-000000000001',
+        intent: 'save-and-initialize',
         draft,
       }),
       {
         type: 'save',
         revision: '00000000-0000-4000-8000-000000000001',
+        intent: 'save-and-initialize',
         draft,
       },
     );
@@ -43,6 +45,7 @@ suite('Host form protocol', () => {
         parseHostFormMessage({
           type: 'save',
           revision: '00000000-0000-4000-8000-000000000001',
+          intent: 'save-only',
           draft,
           privateKeyPath: 'C:\\secret',
         }),
@@ -53,7 +56,18 @@ suite('Host form protocol', () => {
         parseHostFormMessage({
           type: 'save',
           revision: '00000000-0000-4000-8000-000000000001',
+          intent: 'save-only',
           draft: { ...draft, keyStrategy: { kind: 'generated-per-host', keyId: 'forged' } },
+        }),
+      HostFormProtocolError,
+    );
+    assert.throws(
+      () =>
+        parseHostFormMessage({
+          type: 'save',
+          revision: '00000000-0000-4000-8000-000000000001',
+          intent: 'save-and-run-anything',
+          draft,
         }),
       HostFormProtocolError,
     );
@@ -63,6 +77,7 @@ suite('Host form protocol', () => {
     const oversized = {
       type: 'save',
       revision: '00000000-0000-4000-8000-000000000001',
+      intent: 'save-only',
       draft: { ...draft, name: 'x'.repeat(MAX_HOST_FORM_MESSAGE_BYTES) },
     };
     assert.throws(

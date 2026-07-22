@@ -6,27 +6,40 @@ import { parseHostKey, type HostKeyObservation } from '../domain/hostKeys';
 import type { ServerProfile, TrustedHostKey } from '../domain/profiles';
 
 export class BootstrapClient {
-  public probeHostKey(profile: ServerProfile): Promise<HostKeyObservation> {
+  public probeHostKey(profile: ServerProfile, signal?: AbortSignal): Promise<HostKeyObservation> {
     return new Promise((resolve, reject) => {
+      if (signal?.aborted === true) {
+        reject(new DomainError('CANCELLED'));
+        return;
+      }
       const client = new Client();
       let observation: HostKeyObservation | undefined;
       let settled = false;
-      const finish = (result?: HostKeyObservation, errorDetail?: string): void => {
+      let cancelled = false;
+      function finish(result?: HostKeyObservation, errorDetail?: string): void {
         if (settled) {
           return;
         }
         settled = true;
         clearTimeout(timeout);
-        client.end();
-        if (result === undefined) {
+        signal?.removeEventListener('abort', cancel);
+        client.destroy();
+        if (cancelled) {
+          reject(new DomainError('CANCELLED'));
+        } else if (result === undefined) {
           reject(new DomainError('HOST_KEY_UNTRUSTED', errorDetail));
         } else {
           resolve(result);
         }
-      };
+      }
+      function cancel(): void {
+        cancelled = true;
+        finish();
+      }
       const timeout = setTimeout(() => {
         finish(undefined, 'timeout');
       }, 15_000);
+      signal?.addEventListener('abort', cancel, { once: true });
       client.once('error', () => {
         finish(observation, observation === undefined ? 'connection' : undefined);
       });

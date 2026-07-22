@@ -6,6 +6,20 @@ The project follows [Semantic Versioning](https://semver.org/) after its first p
 
 ## [Unreleased]
 
+## [0.1.0-preview.4] - 2026-07-22
+
+### Added
+
+- Add Host now defaults to **Save and initialize**, while **Save only** remains available for deferred setup.
+- Clicking a non-ready host now resumes initialization directly; only ready hosts launch Remote - SSH.
+- A theme-aware Host Identity page makes the fingerprint selectable and copyable and offers first-use trust or exact manual verification.
+- Initialization reports distinct discovery, key preparation, authentication, remote inspection, deployment, and verification stages through VS Code progress notifications.
+
+### Changed
+
+- First-use hosts may use an explicitly labelled trust-on-first-use decision. The exact observed key is pinned; any later key change remains a hard block and requires an independently obtained fingerprint.
+- Cancellable host discovery now closes the underlying SSH client instead of continuing silently in the background.
+
 ## [0.1.0-preview.3] - 2026-07-22
 
 ### Added

@@ -10,6 +10,8 @@ export default tseslint.config(
       'dist/**',
       'media/hostForm.js',
       'media/hostForm.js.map',
+      'media/hostKeyReview.js',
+      'media/hostKeyReview.js.map',
       'node_modules/**',
       'out/**',
     ],

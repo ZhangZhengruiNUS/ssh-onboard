@@ -272,7 +272,9 @@ select[aria-invalid='true'] {
 
 .footer-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
+  justify-content: flex-end;
 }
 
 .primary-button,

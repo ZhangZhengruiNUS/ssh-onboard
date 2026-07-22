@@ -38,7 +38,7 @@ VS Code 扩展并非系统安全沙箱。安装扩展意味着用户信任发布
 
 | 威胁                        | 控制措施                                                                                                  |
 | --------------------------- | --------------------------------------------------------------------------------------------------------- |
-| 首次连接遭遇 MITM           | 认证前展示或匹配 SHA256 指纹；精确保存 host key；变化硬失败                                               |
+| 首次连接遭遇 MITM           | 认证前展示 SHA256 指纹并明确说明 TOFU 局限；支持独立精确匹配；固定 exact host key；变化硬失败             |
 | 密码泄漏到进程或日志        | 不使用 CLI 参数、环境变量、文件或 SSH_ASKPASS；仅传给内存中的 ssh2 连接；统一日志脱敏                     |
 | 恶意字段形成命令注入        | `spawn(exe, args[])`；固定远端命令；用户数据通过结构化 SSH/SFTP 通道处理                                  |
 | 覆盖 SSH Config             | 独立 Include；备份、锁、hash 复核、受控区块与语法展开验证                                                 |
@@ -62,9 +62,9 @@ VS Code 扩展并非系统安全沙箱。安装扩展意味着用户信任发布
 
 - `hostVerifier` 是强制配置；默认 auto-accept 属于发布阻断项。
 - 密码认证只能在 hostVerifier 接受后发生。
-- 首次确认按钮文案必须是“我已核对并信任此指纹”，不能只是“继续”。
-- 支持粘贴管理员提供的期望指纹并精确比较。
-- 指纹变化默认没有自动修复；替换信任必须再次确认旧值、新值、主机和端口。
+- 首次连接可使用明确标注的“信任并继续”（TOFU），但界面必须说明它只能固定本次观察到的密钥，不能独立证明首次连接身份。
+- 支持粘贴管理员或控制台提供的期望指纹并精确比较。
+- 指纹变化默认没有自动修复或一键信任；替换信任必须展示旧值、新值、主机和端口，并要求输入独立取得的新指纹。
 - 禁止 `StrictHostKeyChecking no/off/accept-new` 和 `UserKnownHostsFile /dev/null`。
 - V0.1 固定 `UpdateHostKeys no`；新增或轮换 host key 必须逐把展示并带外确认。
 
@@ -103,14 +103,16 @@ VS Code 扩展并非系统安全沙箱。安装扩展意味着用户信任发布
 - BatchMode 使用不 Include 用户配置、且只写一条目标 IdentityFile 的一次性最小配置；`ssh -G` 必须证明展开结果恰好只有目标 IdentityFile，CertificateFile 为 none，ProxyCommand/ProxyJump/LocalCommand 不改变身份、路由或执行行为，并且 HostKeyAlias 精确等于 `ssh-onboard-<profile UUID>`。受管 `known_hosts` 只用这一固定别名绑定该 profile 已确认的 exact key，以隔离共享 endpoint 的不同 profile。
 - 错误输出不得包含完整主机清单；用户主动打开 Diagnostics 时才显示脱敏值。
 
-### 4.6 Add/Edit Webview
+### 4.6 Webview
 
 - Webview 不是信任边界。所有入站消息先检查 64 KiB 上限、精确字段集合、嵌套 DTO 和类型；未知字段、超大消息、stale revision 全部拒绝。
-- DTO 不包含密码、私钥路径、公钥正文、Host Key、指纹、授权记录、pending authorization 或 deployment marker。
+- Host Form DTO 不包含密码、私钥路径、公钥正文、Host Key、指纹、授权记录、pending authorization 或 deployment marker。
+- Host Identity Webview 是唯一例外：只接收显示名、endpoint、算法和 SHA256 指纹；不得接收 host-key base64、密码、私钥路径、公钥或授权材料。指纹复制由 Extension Host 写入剪贴板。
 - Existing Key 选择只发生在 Extension Host 的原生文件选择器。返回表单的随机 token 绑定 panel ID、profile ID 与 revision，十分钟过期，只能成功消费一次，跨 panel、伪造和重放均失败。
 - 编辑会话保存前比较完整 Profile 快照 hash；初始化或另一窗口改变资料后，旧表单不得覆盖新状态。
 - HTML 使用语义标签、明确 label、错误焦点和 `aria-live`。CSP 为 `default-src 'none'`，只允许 nonce 本地脚本和 `media/` 本地样式，`connect-src` 与 `img-src` 均为 `none`。
 - 浏览器校验不授予权限。Extension Host 保存前仍运行 Profile schema、Alias、Remote - SSH 设置和受管配置预检；共享密钥风险确认继续使用原生模态对话框。
+- Webview 消息使用 panel 绑定的随机 session、精确字段 schema 和单次完成语义；未知字段、伪造 session、重放或超大消息均拒绝。
 
 ## 5. Workspace Trust 与网络
 
@@ -144,8 +146,9 @@ VS Code 扩展并非系统安全沙箱。安装扩展意味着用户信任发布
 
 ### 身份与认证
 
-- 未确认指纹时抓包/服务器日志证明没有密码认证尝试。
-- 指纹变化、算法变化、DNS 指向变化均被阻断。
+- 首次 TOFU、粘贴精确匹配和取消均证明在信任决定前没有密码认证尝试。
+- 已固定 key 的精确重复连接不重复询问；key blob、算法或指纹任一变化均被阻断并要求独立核对。
+- 探测阶段取消会实际关闭 ssh2 连接，不继续在后台等待或认证。
 - 错误密码只允许一次受控尝试，不自动暴力重试。
 - password 和 keyboard-interactive 关闭后，隔离配置的 `ssh -G` 证明只有目标身份，BatchMode 只能用目标密钥成功。
 - `UpdateHostKeys` 不得自动增加信任；主机密钥轮换必须阻断并要求带外确认。

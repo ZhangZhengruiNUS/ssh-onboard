@@ -6,8 +6,8 @@ import type { Client } from 'ssh2';
 import { DomainError } from '../core/domainError';
 import { omitProperties } from '../core/objects';
 import { createDeploymentPlan } from '../domain/authorizedKeys';
-import { knownHostsAddress } from '../domain/hostKeys';
-import type { ServerProfile, TrustedHostKey } from '../domain/profiles';
+import type { HostKeyObservation } from '../domain/hostKeys';
+import type { LocalKeyReference, ServerProfile, TrustedHostKey } from '../domain/profiles';
 import type { WindowsOpenSsh } from '../platform/windows/openssh';
 import type { AuthorizedKeysService } from '../services/authorizedKeysService';
 import type { BootstrapClient } from '../services/bootstrapClient';
@@ -33,6 +33,9 @@ export interface HostCommandServices {
   readonly sshConfig: SshConfigService;
   readonly verification: VerificationService;
   readonly launcher: RemoteSshLauncher;
+  readonly hostKeyReview: {
+    review(profile: ServerProfile, observation: HostKeyObservation): Promise<TrustedHostKey>;
+  };
 }
 
 export async function initializeHost(
@@ -41,10 +44,16 @@ export async function initializeHost(
 ): Promise<void> {
   assertWindows();
   const selected = item?.profile ?? (await pickProfile(services.profiles));
-  await services.profiles.withConfigurationOperation(() =>
-    services.profiles.withProfileOperation(selected.id, (profile) =>
-      initializeProfile(profile, services),
-    ),
+  await initializeHostById(selected.id, services);
+}
+
+export async function initializeHostById(
+  profileId: string,
+  services: HostCommandServices,
+): Promise<void> {
+  assertWindows();
+  await services.profiles.withProfileOperation(profileId, (profile) =>
+    initializeProfile(profile, services),
   );
 }
 
@@ -53,41 +62,66 @@ async function initializeProfile(
   services: HostCommandServices,
 ): Promise<void> {
   let profile = initialProfile;
-  const approved = await vscode.window.showWarningMessage(
-    vscode.l10n.t(
-      'Initialize {0}? SSH Onboard will update its local SSH files, add one Include line to the selected SSH config, and append a public key to the remote user authorized_keys file.',
-      profile.name,
-    ),
-    { modal: true },
-    vscode.l10n.t('Review host fingerprint'),
-  );
-  if (approved === undefined) {
-    throw new vscode.CancellationError();
-  }
-
   const settings = readRemoteSshSettings();
   const paths = services.sshConfig.resolvePaths(settings.configFile);
-  await services.sshConfig.preflight(() => services.profiles.list(), paths, {
-    id: profile.id,
-    alias: profile.alias,
-  });
-  const tools = await services.openssh.discover(settings.sshPath);
-  const localKey = await services.keys.prepare(profile, tools);
-  const observation = await services.bootstrap.probeHostKey(profile);
-  const trustedHostKey = await confirmHostKey(profile, observation);
-  const profileWithoutError = omitProperties(profile, [
-    'lastErrorCode',
-    'lastVerifiedAt',
-    'verificationContext',
-  ]);
-  profile = {
-    ...profileWithoutError,
-    localKey,
-    trustedHostKey,
-  };
-  await services.profiles.update(profile);
+  const discovery = await vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: vscode.l10n.t('Preparing {0}', profile.name),
+      cancellable: true,
+    },
+    async (progress, cancellationToken) => {
+      const abort = new AbortController();
+      const cancellation = cancellationToken.onCancellationRequested(() => abort.abort());
+      try {
+        progress.report({ message: vscode.l10n.t('Checking local SSH configuration...') });
+        await services.sshConfig.preflight(() => services.profiles.list(), paths, {
+          id: profile.id,
+          alias: profile.alias,
+        });
+        throwIfCancelled(cancellationToken);
+        progress.report({ message: vscode.l10n.t('Checking Windows OpenSSH...') });
+        const tools = await services.openssh.discover(settings.sshPath);
+        throwIfCancelled(cancellationToken);
+        progress.report({ message: vscode.l10n.t('Contacting the server for its identity...') });
+        const observation = await services.bootstrap.probeHostKey(profile, abort.signal);
+        throwIfCancelled(cancellationToken);
+        return { observation, tools };
+      } finally {
+        cancellation.dispose();
+      }
+    },
+  );
+  const trustedHostKey = await services.hostKeyReview.review(profile, discovery.observation);
+  let localKey: LocalKeyReference;
   try {
-    await services.sshConfig.persistKnownHosts(() => services.profiles.list(), paths);
+    localKey = await vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: vscode.l10n.t('Preparing {0}', profile.name),
+        cancellable: false,
+      },
+      async (progress) => {
+        progress.report({ message: vscode.l10n.t('Preparing the local SSH key...') });
+        const preparedKey = await services.keys.prepare(profile, discovery.tools);
+        const profileWithoutError = omitProperties(profile, [
+          'lastErrorCode',
+          'lastVerifiedAt',
+          'verificationContext',
+        ]);
+        profile = {
+          ...profileWithoutError,
+          localKey: preparedKey,
+          trustedHostKey,
+        };
+        progress.report({ message: vscode.l10n.t('Saving the trusted host identity...') });
+        await services.profiles.withConfigurationOperation(async () => {
+          await services.profiles.update(profile);
+          await services.sshConfig.persistKnownHosts(() => services.profiles.list(), paths);
+        });
+        return preparedKey;
+      },
+    );
   } catch (error: unknown) {
     await recordFailure(services, profile, error);
     throw error;
@@ -106,29 +140,57 @@ async function initializeProfile(
 
   let client: Client | undefined;
   try {
-    client = await services.bootstrap.connectWithPassword(profile, password, trustedHostKey);
-    await services.sshConfig.preflight(() => services.profiles.list(), paths, {
-      id: profile.id,
-      alias: profile.alias,
-    });
-    const plan =
-      profile.pendingAuthorization ??
-      createDeploymentPlan(localKey.publicKeyLine, profile.id, randomUUID());
-    if (profile.pendingAuthorization === undefined) {
-      profile = { ...profile, pendingAuthorization: plan };
-      await services.profiles.update(profile);
-    }
-    const layout = await services.remoteLayout.probe(client);
-    const sftp = await openSftp(client);
-    const authorization = await services.authorizedKeys.deploy(sftp, localKey, layout, plan);
-    sftp.end();
-    const profileWithoutPending = omitProperties(profile, ['pendingAuthorization']);
-    profile = {
-      ...profileWithoutPending,
-      authorization,
-      resolvedHome: layout.home,
-    };
-    await services.profiles.update(profile);
+    profile = await vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: vscode.l10n.t('Setting up key access for {0}', profile.name),
+        cancellable: false,
+      },
+      async (progress) => {
+        progress.report({ message: vscode.l10n.t('Authenticating with the one-time password...') });
+        const connectedClient = await services.bootstrap.connectWithPassword(
+          profile,
+          password,
+          trustedHostKey,
+        );
+        client = connectedClient;
+        const plan = await services.profiles.withConfigurationOperation(async () => {
+          progress.report({ message: vscode.l10n.t('Rechecking local SSH configuration...') });
+          await services.sshConfig.preflight(() => services.profiles.list(), paths, {
+            id: profile.id,
+            alias: profile.alias,
+          });
+          const nextPlan =
+            profile.pendingAuthorization ??
+            createDeploymentPlan(localKey.publicKeyLine, profile.id, randomUUID());
+          if (profile.pendingAuthorization === undefined) {
+            profile = { ...profile, pendingAuthorization: nextPlan };
+            await services.profiles.update(profile);
+          }
+          return nextPlan;
+        });
+        progress.report({ message: vscode.l10n.t('Checking the remote SSH directory...') });
+        const layout = await services.remoteLayout.probe(connectedClient);
+        const sftp = await openSftp(connectedClient);
+        try {
+          progress.report({ message: vscode.l10n.t('Installing the public key safely...') });
+          const authorization = await services.authorizedKeys.deploy(sftp, localKey, layout, plan);
+          const profileWithoutPending = omitProperties(profile, ['pendingAuthorization']);
+          profile = {
+            ...profileWithoutPending,
+            authorization,
+            resolvedHome: layout.home,
+          };
+          await services.profiles.update(profile);
+        } finally {
+          sftp.end();
+        }
+        return services.profiles.withConfigurationOperation(async () => {
+          progress.report({ message: vscode.l10n.t('Verifying passwordless SSH access...') });
+          return applyVerifyAndPersist(profile, services, discovery.tools, paths);
+        });
+      },
+    );
   } catch (error: unknown) {
     await recordFailure(services, profile, error);
     throw error;
@@ -136,7 +198,6 @@ async function initializeProfile(
     client?.end();
   }
 
-  profile = await applyVerifyAndPersist(profile, services, tools, paths);
   services.tree.refresh();
   const connectNow = await vscode.window.showInformationMessage(
     vscode.l10n.t('{0} is ready for passwordless Remote - SSH connections.', profile.name),
@@ -285,62 +346,6 @@ async function revokeProfileKey(
   }
 }
 
-async function confirmHostKey(
-  profile: ServerProfile,
-  observation: {
-    readonly algorithm: string;
-    readonly fingerprint: string;
-    readonly keyBase64: string;
-  },
-): Promise<TrustedHostKey> {
-  const existing = profile.trustedHostKey;
-  if (
-    existing !== undefined &&
-    existing.algorithm === observation.algorithm &&
-    existing.fingerprint === observation.fingerprint &&
-    existing.keyBase64 === observation.keyBase64
-  ) {
-    return existing;
-  }
-  const changed = existing !== undefined;
-  const endpoint = `${profile.host}:${String(profile.port)}`;
-  const message = changed
-    ? vscode.l10n.t(
-        'The host key for {0} changed. Old: {1}. New: {2}. Replace it only after independent verification.',
-        endpoint,
-        existing.fingerprint,
-        observation.fingerprint,
-      )
-    : vscode.l10n.t(
-        'Host: {0}\nHost key algorithm: {1}\nFingerprint: {2}\nConfirm only after checking it through an independent channel.',
-        endpoint,
-        observation.algorithm,
-        observation.fingerprint,
-      );
-  const button = vscode.l10n.t('Enter independently verified fingerprint');
-  const accepted = await vscode.window.showWarningMessage(message, { modal: true }, button);
-  if (accepted === undefined) {
-    throw new DomainError(changed ? 'HOST_KEY_CHANGED' : 'HOST_KEY_UNTRUSTED');
-  }
-  const typed = await vscode.window.showInputBox({
-    title: vscode.l10n.t('Verify SSH host fingerprint'),
-    prompt: vscode.l10n.t('Paste the expected SHA256 fingerprint from an independent source.'),
-    ignoreFocusOut: true,
-    validateInput: (value) =>
-      value.trim() === observation.fingerprint
-        ? undefined
-        : vscode.l10n.t('The fingerprint does not match.'),
-  });
-  if (typed?.trim() !== observation.fingerprint) {
-    throw new DomainError(changed ? 'HOST_KEY_CHANGED' : 'HOST_KEY_UNTRUSTED');
-  }
-  return {
-    ...observation,
-    knownHostsHost: knownHostsAddress(profile.host, profile.port),
-    trustedAt: new Date().toISOString(),
-  };
-}
-
 async function applyVerifyAndPersist(
   profile: ServerProfile,
   services: HostCommandServices,
@@ -368,6 +373,12 @@ async function applyVerifyAndPersist(
   } catch (error: unknown) {
     await recordFailure(services, profile, error);
     throw error;
+  }
+}
+
+function throwIfCancelled(token: vscode.CancellationToken): void {
+  if (token.isCancellationRequested) {
+    throw new vscode.CancellationError();
   }
 }
 

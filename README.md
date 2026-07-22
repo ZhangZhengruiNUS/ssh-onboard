@@ -17,8 +17,9 @@ Opening the same remote project folder is another recurring annoyance. Developer
 SSH Onboard exists to make that setup explicit and repeatable:
 
 ```text
-Add a host and its default folder
-→ inspect and independently verify the host fingerprint
+Add a host and its default folder, then select Save and initialize
+→ review a copyable host-identity page while setup progress remains visible
+→ trust the first-use key, or compare it with an independently supplied fingerprint
 → enter the server password once (never saved)
 → generate or select an SSH key
 → safely add the public key and verify key-only login
@@ -27,12 +28,12 @@ Add a host and its default folder
 
 SSH Onboard is **not another SSH client**. It is a thin enhancement for Microsoft's Remote - SSH. Explorer, terminals, remote extensions, Git, debugging, and language tooling remain provided by Remote - SSH.
 
-![SSH Onboard host form](media/host-form.png)
-
 ## V0.1 features
 
 - Native Tree View for grouping, searching, connecting, and removing hosts, with an accessible editor form for Add and Edit.
-- One-time password bootstrap after an explicit host-fingerprint trust decision.
+- Save-and-initialize as the default Add Host action, with Save only available when setup should be deferred.
+- A copyable host-identity review page and staged progress during network and key setup.
+- One-time password bootstrap after an explicit host-key trust decision.
 - A dedicated Ed25519 key per host by default.
 - Advanced choice of an existing unencrypted key or an explicitly shared generated group key.
 - Conflict-aware SSH Config Include management and an isolated `known_hosts` file.
@@ -72,15 +73,19 @@ Install the generated `artifacts/ssh-onboard-<version>.vsix` only in a test VS C
 1. Open the **SSH Onboard** Activity Bar view and select **Add Host**.
 2. Enter the host, user, SSH alias, optional group, and default absolute POSIX path.
 3. Keep the recommended per-host key, or open the advanced key strategy options.
-4. Select **Initialize Key Access**.
-5. Verify the displayed SSH host fingerprint through an independent channel before accepting it.
+4. Select **Save and initialize**. Choose **Save only** only when setup should be deferred.
+5. Review the selectable fingerprint. On first use, select **Trust and continue**, or paste a fingerprint obtained independently for stronger assurance.
 6. Enter the SSH password once. SSH Onboard does not persist it.
-7. After verification succeeds, select **Connect and Open Default Folder**.
+7. Follow the staged progress notification. After verification succeeds, select **Connect and Open Default Folder**.
+
+If you chose **Save only**, click the resulting **Setup required** host in the sidebar whenever you are ready; the click resumes initialization directly.
 
 ## Security model
 
 - Passwords, passphrases, and OTPs are never persisted or logged.
-- Authentication is not attempted before a host fingerprint is shown and trusted.
+- Authentication is not attempted before a host key is shown and trusted.
+- First-use **Trust and continue** uses the standard trust-on-first-use model: it pins the exact key for later connections but cannot independently prove the first connection. Use the manual fingerprint field when that assurance is required.
+- Any later key, algorithm, or fingerprint change is blocked. Replacing it requires independent verification; there is no one-click bypass.
 - SSH Onboard does not disable host-key checking or use `/dev/null` as `known_hosts`.
 - Managed private-key ACLs allow only the current Windows user and `SYSTEM`.
 - Existing `authorized_keys` bytes are preserved; unsafe ownership, layout, links, or concurrent edits stop the operation.

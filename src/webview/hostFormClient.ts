@@ -16,7 +16,9 @@ const shell = requiredElement<HTMLElement>('.page-shell');
 const form = requiredElement<HTMLFormElement>('#host-form');
 const title = requiredElement<HTMLElement>('#form-title');
 const saveButton = requiredElement<HTMLButtonElement>('#save');
+const saveOnlyButton = requiredElement<HTMLButtonElement>('#save-only');
 const cancelButton = requiredElement<HTMLButtonElement>('#cancel');
+const footerHint = requiredElement<HTMLElement>('#footer-hint');
 const keyStrategy = requiredElement<HTMLSelectElement>('#keyStrategy');
 const advancedKey = requiredElement<HTMLDetailsElement>('#advanced-key');
 const existingKey = requiredElement<HTMLElement>('#existing-key');
@@ -33,6 +35,7 @@ let validationSequence = 0;
 let latestValidationSequence = 0;
 let validationTimer: ReturnType<typeof setTimeout> | undefined;
 let aliasEdited = false;
+let mode: 'add' | 'edit' = 'add';
 
 input('alias').addEventListener('input', () => {
   aliasEdited = true;
@@ -59,6 +62,14 @@ form.addEventListener('change', () => {
 
 form.addEventListener('submit', (event) => {
   event.preventDefault();
+  submit(mode === 'add' ? 'save-and-initialize' : 'save-only');
+});
+
+saveOnlyButton.addEventListener('click', () => {
+  submit('save-only');
+});
+
+function submit(intent: 'save-only' | 'save-and-initialize'): void {
   if (revision === undefined) {
     return;
   }
@@ -71,9 +82,10 @@ form.addEventListener('submit', (event) => {
     return;
   }
   saveButton.disabled = true;
+  saveOnlyButton.disabled = true;
   status.textContent = data('saving');
-  vscode.postMessage({ type: 'save', revision, draft });
-});
+  vscode.postMessage({ type: 'save', revision, intent, draft });
+}
 
 cancelButton.addEventListener('click', () => {
   if (revision !== undefined) {
@@ -118,6 +130,7 @@ window.addEventListener('message', (event: MessageEvent<ExtensionToHostFormMessa
   }
   if (message.type === 'operationError') {
     saveButton.disabled = false;
+    saveOnlyButton.disabled = false;
     status.textContent = message.message;
     return;
   }
@@ -135,6 +148,7 @@ function initialize(
   message: Extract<ExtensionToHostFormMessage, { readonly type: 'initialize' }>,
 ): void {
   revision = message.revision;
+  mode = message.mode;
   setInput('name', message.draft.name);
   setInput('host', message.draft.host);
   setInput('port', String(message.draft.port));
@@ -154,7 +168,9 @@ function initialize(
   }
   existingKeyLabel.textContent = existingSelectionLabel ?? data('noKey');
   title.textContent = message.mode === 'add' ? data('addTitle') : data('editTitle');
-  saveButton.textContent = message.mode === 'add' ? data('saveHost') : data('saveChanges');
+  saveButton.textContent = message.mode === 'add' ? data('saveInitialize') : data('saveChanges');
+  saveOnlyButton.classList.toggle('is-hidden', message.mode !== 'add');
+  footerHint.textContent = message.mode === 'add' ? data('addHint') : data('editHint');
   updateKeyControls();
   baseline = serializeDraft(collectDraft());
   status.textContent = '';

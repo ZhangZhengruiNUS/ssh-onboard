@@ -2,7 +2,7 @@
   "name": "ssh-onboard",
   "displayName": "%extension.displayName%",
   "description": "%extension.description%",
-  "version": "0.1.0-preview.3",
+  "version": "0.1.0-preview.4",
   "publisher": "ZhangZhengruiNUS",
   "license": "SEE LICENSE IN LICENSE",
   "private": true,
@@ -159,12 +159,12 @@
       "view/item/context": [
         {
           "command": "sshOnboard.connectHost",
-          "when": "view == sshOnboard.servers && viewItem =~ /sshOnboard\\.host/",
+          "when": "view == sshOnboard.servers && viewItem == sshOnboard.host.ready",
           "group": "inline@1"
         },
         {
           "command": "sshOnboard.initializeHost",
-          "when": "view == sshOnboard.servers && viewItem =~ /sshOnboard\\.host/",
+          "when": "view == sshOnboard.servers && viewItem =~ /sshOnboard\\.host\\.(setup-required|host-trusted|needs-attention)/",
           "group": "sshOnboard@1"
         },
         {
