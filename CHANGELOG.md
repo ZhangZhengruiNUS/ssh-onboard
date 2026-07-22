@@ -6,6 +6,11 @@ The project follows [Semantic Versioning](https://semver.org/) after its first p
 
 ## [Unreleased]
 
+### Security
+
+- Revoking a managed key now warns users to confirm an alternate login or console path first.
+- Pre-existing SSH Onboard directories are validated without rewriting their Windows ACLs.
+
 ## [0.1.0-preview.2] - 2026-07-21
 
 ### Fixed

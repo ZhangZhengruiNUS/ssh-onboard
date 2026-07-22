@@ -211,7 +211,10 @@ async function revokeProfileKey(
     throw new DomainError('FEATURE_UNAVAILABLE', 'managed-authorization-required');
   }
   const confirmed = await vscode.window.showWarningMessage(
-    vscode.l10n.t('Revoke the exact public key deployed by SSH Onboard for {0}?', profile.name),
+    vscode.l10n.t(
+      'Revoke the exact public key deployed by SSH Onboard for {0}? Confirm another login method or a server console is available first; otherwise you may lose SSH access.',
+      profile.name,
+    ),
     { modal: true },
     vscode.l10n.t('Revoke deployed key'),
   );
