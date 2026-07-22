@@ -2,7 +2,9 @@ import * as assert from 'node:assert/strict';
 
 import * as vscode from 'vscode';
 
+import { addHost } from '../../commands/profileCommands';
 import { DomainError } from '../../core/domainError';
+import { ProfileStore } from '../../services/profileStore';
 import { readRemoteSshSettings } from '../../services/remoteSettings';
 import { HostTreeDataProvider } from '../../views/hostTreeDataProvider';
 
@@ -53,5 +55,71 @@ suite('SSH Onboard extension', () => {
         error.code === 'LOCAL_CONFIG_CONFLICT' &&
         error.detail === 'remote.SSH.configFile:workspace',
     );
+  });
+
+  test('reuses one Add Host panel and cancel does not persist a profile', async () => {
+    await vscode.commands.executeCommand('sshOnboard.addHost');
+    const first = await vscode.commands.executeCommand<{
+      readonly open: boolean;
+      readonly panelId?: string;
+      readonly profileCount: number;
+    }>('_sshOnboard.test.hostFormState');
+    assert.equal(first.open, true);
+    assert.ok(first.panelId);
+
+    await vscode.commands.executeCommand('sshOnboard.addHost');
+    const second = await vscode.commands.executeCommand<{
+      readonly open: boolean;
+      readonly panelId?: string;
+      readonly profileCount: number;
+    }>('_sshOnboard.test.hostFormState');
+    assert.equal(second.panelId, first.panelId);
+
+    await vscode.commands.executeCommand('_sshOnboard.test.cancelHostForm');
+    const cancelled = await vscode.commands.executeCommand<{
+      readonly open: boolean;
+      readonly profileCount: number;
+    }>('_sshOnboard.test.hostFormState');
+    assert.equal(cancelled.open, false);
+    assert.equal(cancelled.profileCount, first.profileCount);
+  });
+
+  test('saving a form draft refreshes the native tree', async () => {
+    const values = new Map<string, unknown>();
+    const memento = {
+      get: <T>(key: string): T | undefined => values.get(key) as T | undefined,
+      update: (key: string, value: unknown): Thenable<void> => {
+        values.set(key, value);
+        return Promise.resolve();
+      },
+      keys: (): readonly string[] => [...values.keys()],
+    } satisfies vscode.Memento;
+    const profiles = new ProfileStore(memento);
+    const tree = new HostTreeDataProvider(profiles);
+    let refreshes = 0;
+    const disposable = tree.onDidChangeTreeData(() => {
+      refreshes += 1;
+    });
+    try {
+      await addHost(
+        {
+          name: 'Test host',
+          host: '192.0.2.10',
+          port: 22,
+          username: 'developer',
+          alias: 'test-host',
+          keyStrategy: {
+            kind: 'generated-per-host',
+            keyId: '00000000-0000-4000-8000-000000000001',
+          },
+        },
+        profiles,
+        tree,
+      );
+      assert.equal(profiles.list().length, 1);
+      assert.equal(refreshes, 1);
+    } finally {
+      disposable.dispose();
+    }
   });
 });

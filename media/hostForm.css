@@ -1,0 +1,366 @@
+:root {
+  color-scheme: light dark;
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  color: var(--vscode-foreground);
+  background: var(--vscode-editor-background);
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+.page-shell {
+  width: min(880px, calc(100% - 40px));
+  margin: 0 auto;
+  padding: 36px 0 72px;
+}
+
+.page-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
+  gap: 32px;
+  align-items: end;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--vscode-widget-border, transparent);
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+h1,
+h2,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  margin-bottom: 8px;
+  font-size: clamp(24px, 4vw, 34px);
+  font-weight: 650;
+  letter-spacing: -0.025em;
+}
+
+.lede,
+.section-heading p,
+.field-help,
+.form-footer p {
+  color: var(--vscode-descriptionForeground);
+}
+
+.lede {
+  max-width: 600px;
+  margin-bottom: 0;
+  line-height: 1.55;
+}
+
+.privacy-note {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  color: var(--vscode-descriptionForeground);
+  background: var(--vscode-textBlockQuote-background);
+  border: 1px solid var(--vscode-widget-border, transparent);
+  border-radius: 6px;
+  line-height: 1.45;
+}
+
+.privacy-dot {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  background: var(--vscode-testing-iconPassed);
+  border-radius: 50%;
+}
+
+.form-section {
+  padding: 28px 0;
+  border-bottom: 1px solid var(--vscode-widget-border, transparent);
+}
+
+.section-heading {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.step-number {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  color: var(--vscode-badge-foreground);
+  background: var(--vscode-badge-background);
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+h2 {
+  margin-bottom: 4px;
+  font-size: 17px;
+  font-weight: 650;
+}
+
+.section-heading p {
+  margin-bottom: 0;
+  line-height: 1.45;
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 20px;
+  padding-left: 48px;
+}
+
+.field-wide {
+  grid-column: 1 / -1;
+}
+
+.field label,
+.key-card > label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+input,
+select {
+  width: 100%;
+  min-height: 32px;
+  padding: 5px 8px;
+  color: var(--vscode-input-foreground);
+  background: var(--vscode-input-background);
+  border: 1px solid var(--vscode-input-border, transparent);
+  border-radius: 2px;
+  outline: none;
+}
+
+input:focus,
+select:focus,
+button:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 1px;
+}
+
+input[aria-invalid='true'],
+select[aria-invalid='true'] {
+  border-color: var(--vscode-inputValidation-errorBorder);
+}
+
+.field-help,
+.field-error {
+  min-height: 18px;
+  margin: 5px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.field-error {
+  color: var(--vscode-errorForeground);
+}
+
+.text-action {
+  margin-top: 5px;
+  padding: 0;
+  color: var(--vscode-textLink-foreground);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.text-action:hover {
+  color: var(--vscode-textLink-activeForeground);
+  text-decoration: underline;
+}
+
+.key-card {
+  margin-left: 48px;
+  padding: 18px;
+  background: var(--vscode-sideBar-background);
+  border: 1px solid var(--vscode-widget-border, transparent);
+  border-radius: 6px;
+}
+
+.key-card summary {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.key-card summary small {
+  color: var(--vscode-descriptionForeground);
+  font-weight: 400;
+}
+
+.key-card summary::after {
+  content: '›';
+  color: var(--vscode-descriptionForeground);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.key-card[open] summary::after {
+  transform: rotate(90deg);
+}
+
+.key-controls {
+  padding-top: 18px;
+}
+
+.existing-key {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--vscode-widget-border, transparent);
+}
+
+.selection-label {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 12px;
+}
+
+.form-status {
+  min-height: 22px;
+  padding: 12px 0 0 48px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.form-footer {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 18px;
+  padding: 14px 0;
+  background: var(--vscode-editor-background);
+  border-top: 1px solid var(--vscode-widget-border, transparent);
+}
+
+.form-footer p {
+  margin-bottom: 0;
+}
+
+.footer-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.primary-button,
+.secondary-button {
+  min-height: 32px;
+  padding: 5px 14px;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.primary-button {
+  color: var(--vscode-button-foreground);
+  background: var(--vscode-button-background);
+}
+
+.primary-button:hover {
+  background: var(--vscode-button-hoverBackground);
+}
+
+.primary-button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.secondary-button {
+  color: var(--vscode-button-secondaryForeground);
+  background: var(--vscode-button-secondaryBackground);
+}
+
+.secondary-button:hover {
+  background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.is-hidden {
+  display: none !important;
+}
+
+@media (max-width: 680px) {
+  .page-shell {
+    width: min(100% - 24px, 880px);
+    padding-top: 22px;
+  }
+
+  .page-header,
+  .field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .page-header {
+    gap: 18px;
+  }
+
+  .field-grid,
+  .key-card,
+  .form-status {
+    margin-left: 0;
+    padding-left: 0;
+  }
+
+  .key-card {
+    padding: 14px;
+  }
+
+  .field-wide {
+    grid-column: auto;
+  }
+
+  .form-footer {
+    align-items: flex-end;
+  }
+}
+
+@media (forced-colors: active) {
+  input,
+  select,
+  .key-card,
+  .privacy-note,
+  .primary-button,
+  .secondary-button {
+    border-color: CanvasText;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+}

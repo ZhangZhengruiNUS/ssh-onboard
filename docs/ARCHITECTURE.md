@@ -15,6 +15,7 @@
 flowchart LR
   U["User"] --> V["VS Code UI"]
   V --> K["SSH Onboard local UI extension"]
+  K --> WV["Local Add/Edit Webview form"]
   K --> S2["ssh2 bootstrap connection"]
   K --> OS["Windows OpenSSH tools"]
   K --> FS["User .ssh managed files"]
@@ -63,6 +64,13 @@ src/
     editHost.ts
     revokeKey.ts
     showDiagnostics.ts
+  views/
+    hostTreeDataProvider.ts
+  webview/
+    hostFormController.ts
+    hostFormProtocol.ts
+    hostFormSession.ts
+    hostFormClient.ts
   platform/windows/
     openssh.ts
     fileAcl.ts
@@ -70,7 +78,16 @@ src/
   test/
 ```
 
-模块依赖方向为 `commands/providers → services → domain`。平台调用只出现在 `platform/windows`，SSH/文件系统副作用通过接口注入，单元测试使用假实现。
+模块依赖方向为 `commands/views/webview → services → domain`。Webview 的浏览器 bundle 与 Extension Host bundle 独立构建，二者只通过版本化的内部消息协议通信。平台调用只出现在 `platform/windows`，SSH/文件系统副作用通过接口注入，单元测试使用假实现。
+
+### 3.1 Add/Edit Webview 边界
+
+- `sshOnboard.addHost` 与 `sshOnboard.editHost` 保持稳定命令 ID，由单例 `WebviewPanel` 在编辑区显示表单。
+- 浏览器 DTO 只含名称、endpoint、Alias、默认目录、分组和密钥策略标签；不得含私钥路径、公钥、指纹、Host Key、授权行或 deployment marker。
+- Existing Key 始终由 Extension Host 打开原生文件选择器。表单只收到文件名标签和随机 token；token 绑定 panel、profile 与编辑 revision，十分钟过期且成功使用后拒绝重放。
+- 浏览器校验仅改善输入体验。保存时 Extension Host 重新解析严格 schema、检查 revision、重读 ProfileStore、执行 Alias/配置预检，并通过原有命令与服务完成持久化。
+- 新增未初始化 Profile 本身不写 SSH 文件；非 Alias 的本地配置问题可在表单中提示，但不阻止保存资料。Initialize 在任何网络或远端写入前仍执行完整、强制的配置预检。
+- Webview 使用 `default-src 'none'`、nonce 脚本、仅 `media/` 的 `localResourceRoots`、空 `connect-src`，不启用 command URI，也不引入前端框架或已弃用 UI Toolkit。
 
 ## 4. 本地持久化
 

@@ -9,9 +9,8 @@ import {
   type HostCommandServices,
 } from './commands/hostCommands';
 import {
-  addHost,
-  editHost,
   exportProfiles,
+  pickProfile,
   removeHost,
   searchHosts,
   showDiagnostics,
@@ -30,6 +29,7 @@ import { RemoteSshLauncher } from './services/remoteSshLauncher';
 import { SshConfigService } from './services/sshConfigService';
 import { VerificationService } from './services/verificationService';
 import { HostTreeDataProvider, type HostTreeItem } from './views/hostTreeDataProvider';
+import { HostFormController } from './webview/hostFormController';
 
 const REMOTE_SSH_EXTENSION_ID = 'ms-vscode-remote.remote-ssh';
 
@@ -65,15 +65,25 @@ export function activate(context: vscode.ExtensionContext): void {
       executeCommandSafely(logger, stage, () => handler(item)),
     );
 
+  const hostForm = new HostFormController({
+    extensionUri: context.extensionUri,
+    profiles,
+    tree,
+    sshConfig: services.sshConfig,
+    runSafely: (stage, operation) => executeCommandSafely(logger, stage, operation),
+  });
+
   context.subscriptions.push(
     output,
+    hostForm,
     vscode.window.registerTreeDataProvider('sshOnboard.servers', tree),
     vscode.commands.registerCommand('sshOnboard.showLogs', () => logger.show()),
     vscode.commands.registerCommand('sshOnboard.refresh', () => tree.refresh()),
-    command('sshOnboard.addHost', 'add-host', () => addHost(profiles, tree)),
-    command('sshOnboard.editHost', 'edit-host', (item) =>
-      editHost(item, profiles, tree, services.sshConfig),
-    ),
+    command('sshOnboard.addHost', 'add-host', () => hostForm.openAdd()),
+    command('sshOnboard.editHost', 'edit-host', async (item) => {
+      const selected = item?.profile ?? (await pickProfile(profiles));
+      await hostForm.openEdit(selected.id);
+    }),
     command('sshOnboard.removeHost', 'remove-host', (item) =>
       removeHost(item, profiles, tree, services.sshConfig),
     ),
@@ -111,6 +121,15 @@ export function activate(context: vscode.ExtensionContext): void {
       }
     }),
   );
+
+  if (context.extensionMode === vscode.ExtensionMode.Test) {
+    context.subscriptions.push(
+      vscode.commands.registerCommand('_sshOnboard.test.hostFormState', () => hostForm.debugState),
+      vscode.commands.registerCommand('_sshOnboard.test.cancelHostForm', () =>
+        hostForm.cancelForTests(),
+      ),
+    );
+  }
 
   const remoteSshAvailable = vscode.extensions.getExtension(REMOTE_SSH_EXTENSION_ID) !== undefined;
   void vscode.commands

@@ -27,9 +27,11 @@ Add a host and its default folder
 
 SSH Onboard is **not another SSH client**. It is a thin enhancement for Microsoft's Remote - SSH. Explorer, terminals, remote extensions, Git, debugging, and language tooling remain provided by Remote - SSH.
 
+![SSH Onboard host form](media/host-form.png)
+
 ## V0.1 features
 
-- Native Tree View for adding, grouping, editing, searching, and removing hosts.
+- Native Tree View for grouping, searching, connecting, and removing hosts, with an accessible editor form for Add and Edit.
 - One-time password bootstrap after an explicit host-fingerprint trust decision.
 - A dedicated Ed25519 key per host by default.
 - Advanced choice of an existing unencrypted key or an explicitly shared generated group key.

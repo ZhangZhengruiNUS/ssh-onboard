@@ -54,6 +54,26 @@ function pathsFor(service: SshConfigService, temporary: string): SshConfigPaths 
 }
 
 suite('SshConfigService managed state', () => {
+  test('checks a projected form alias without creating managed files', async () => {
+    const temporary = await mkdtemp(path.join(os.tmpdir(), 'ssh-onboard-form-alias-'));
+    try {
+      const service = createService();
+      const paths = pathsFor(service, temporary);
+      await writeFile(paths.userConfig, 'Host occupied\n    User developer\n', 'utf8');
+
+      await assert.rejects(
+        service.preflightAlias(() => [], paths, { id: 'draft', alias: 'occupied' }),
+        (error: unknown) =>
+          error instanceof DomainError &&
+          error.code === 'LOCAL_CONFIG_CONFLICT' &&
+          error.detail === 'alias',
+      );
+      await assert.rejects(stat(paths.managedDirectory), { code: 'ENOENT' });
+    } finally {
+      await rm(temporary, { recursive: true, force: true });
+    }
+  });
+
   test('commits empty config, known_hosts, and V1 state without touching user config', async () => {
     const temporary = await mkdtemp(path.join(os.tmpdir(), 'ssh-onboard-config-'));
     try {
