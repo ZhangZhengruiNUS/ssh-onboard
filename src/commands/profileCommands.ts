@@ -3,9 +3,12 @@ import path from 'node:path';
 
 import * as vscode from 'vscode';
 
+import { DomainError } from '../core/domainError';
 import { createDiagnosticReport } from '../domain/diagnostics';
-import type { ServerProfile } from '../domain/profiles';
+import type { ProfileDraft, ServerProfile } from '../domain/profiles';
 import type { ProfileStore } from '../services/profileStore';
+import { readRemoteSshSettings } from '../services/remoteSettings';
+import type { SshConfigPaths, SshConfigService } from '../services/sshConfigService';
 import type { HostTreeDataProvider, HostTreeItem } from '../views/hostTreeDataProvider';
 import { promptForProfile } from './profilePrompts';
 
@@ -19,20 +22,15 @@ export async function editHost(
   item: HostTreeItem | undefined,
   profiles: ProfileStore,
   tree: HostTreeDataProvider,
-  synchronize?: (profiles: readonly ServerProfile[]) => Promise<void>,
+  sshConfig?: SshConfigService,
 ): Promise<void> {
   const selected = item?.profile ?? (await pickProfile(profiles));
-  await profiles.withProfileOperation(selected.id, async (profile) => {
-    const draft = await promptForProfile(profile, (group) => findGroupKeyId(profiles, group));
-    await profiles.updateDraft(profile.id, draft);
-    try {
-      await synchronize?.(profiles.list());
-    } catch (error: unknown) {
-      await profiles.update(profile);
-      await synchronize?.(profiles.list()).catch(() => undefined);
-      throw error;
-    }
-  });
+  await profiles.withConfigurationOperation(() =>
+    profiles.withProfileOperation(selected.id, async (profile) => {
+      const draft = await promptForProfile(profile, (group) => findGroupKeyId(profiles, group));
+      await updateProfileAndArtifacts(profile, draft, profiles, sshConfig);
+    }),
+  );
   tree.refresh();
 }
 
@@ -40,34 +38,128 @@ export async function removeHost(
   item: HostTreeItem | undefined,
   profiles: ProfileStore,
   tree: HostTreeDataProvider,
-  beforeRemove?: (remaining: readonly ServerProfile[]) => Promise<void>,
+  sshConfig?: SshConfigService,
 ): Promise<void> {
   const selected = item?.profile ?? (await pickProfile(profiles));
-  await profiles.withProfileOperation(selected.id, async (profile) => {
-    const choice = await vscode.window.showWarningMessage(
-      vscode.l10n.t(
-        'Remove {0} from SSH Onboard? This does not revoke any key already deployed to the server.',
-        profile.name,
-      ),
-      { modal: true },
-      vscode.l10n.t('Remove local profile'),
-    );
-    if (choice === undefined) {
-      throw new vscode.CancellationError();
-    }
-    if (
-      profile.authorization?.ownership === 'managed' ||
-      profile.pendingAuthorization !== undefined
-    ) {
-      await vscode.window.showErrorMessage(
-        vscode.l10n.t('Revoke the key deployed by SSH Onboard before removing this profile.'),
+  await profiles.withConfigurationOperation(() =>
+    profiles.withProfileOperation(selected.id, async (profile) => {
+      const choice = await vscode.window.showWarningMessage(
+        vscode.l10n.t(
+          'Remove {0} from SSH Onboard? This does not revoke any key already deployed to the server.',
+          profile.name,
+        ),
+        { modal: true },
+        vscode.l10n.t('Remove local profile'),
       );
-      throw new vscode.CancellationError();
-    }
-    await beforeRemove?.(profiles.list().filter((candidate) => candidate.id !== profile.id));
-    await profiles.remove(profile.id);
-  });
+      if (choice === undefined) {
+        throw new vscode.CancellationError();
+      }
+      if (
+        profile.authorization?.ownership === 'managed' ||
+        profile.pendingAuthorization !== undefined
+      ) {
+        throw new DomainError('LOCAL_CONFIG_CONFLICT', 'revoke-before-remove');
+      }
+      await removeProfileAndArtifacts(profile, profiles, sshConfig);
+    }),
+  );
   tree.refresh();
+}
+
+async function updateProfileAndArtifacts(
+  profile: ServerProfile,
+  draft: ProfileDraft,
+  profiles: ProfileStore,
+  sshConfig: SshConfigService | undefined,
+): Promise<void> {
+  const artifactMode = profileArtifactMode(profile);
+  if (sshConfig === undefined || artifactMode === 'none') {
+    await profiles.updateDraft(profile.id, draft);
+    return;
+  }
+  const projected = profiles.projectUpdateDraft(profile.id, draft);
+  const futureProfiles = (): readonly ServerProfile[] =>
+    profiles.list().map((candidate) => (candidate.id === projected.id ? projected : candidate));
+  const paths = resolveConfigPaths(sshConfig);
+  if (artifactMode === 'known-hosts') {
+    await sshConfig.persistKnownHosts(() => profiles.list(), paths);
+  } else {
+    await sshConfig.preflight(() => profiles.list(), paths, {
+      id: profile.id,
+      alias: draft.alias,
+    });
+  }
+  if (artifactMode === 'known-hosts') {
+    await sshConfig.persistKnownHosts(futureProfiles, paths);
+  } else {
+    await sshConfig.synchronize(futureProfiles, paths);
+  }
+  try {
+    await profiles.updateDraft(profile.id, draft);
+  } catch (error: unknown) {
+    await restoreArtifacts(profiles, sshConfig, paths, artifactMode);
+    throw error;
+  }
+}
+
+async function removeProfileAndArtifacts(
+  profile: ServerProfile,
+  profiles: ProfileStore,
+  sshConfig: SshConfigService | undefined,
+): Promise<void> {
+  const artifactMode = profileArtifactMode(profile);
+  if (sshConfig === undefined || artifactMode === 'none') {
+    await profiles.remove(profile.id);
+    return;
+  }
+  const paths = resolveConfigPaths(sshConfig);
+  if (artifactMode === 'known-hosts') {
+    await sshConfig.persistKnownHosts(() => profiles.list(), paths);
+  } else {
+    await sshConfig.preflight(() => profiles.list(), paths);
+  }
+  const futureProfiles = (): readonly ServerProfile[] =>
+    profiles.list().filter((candidate) => candidate.id !== profile.id);
+  if (artifactMode === 'known-hosts') {
+    await sshConfig.persistKnownHosts(futureProfiles, paths);
+  } else {
+    await sshConfig.synchronize(futureProfiles, paths);
+  }
+  try {
+    await profiles.remove(profile.id);
+  } catch (error: unknown) {
+    await restoreArtifacts(profiles, sshConfig, paths, artifactMode);
+    throw error;
+  }
+}
+
+async function restoreArtifacts(
+  profiles: ProfileStore,
+  sshConfig: SshConfigService,
+  paths: SshConfigPaths,
+  mode: 'known-hosts' | 'managed-host',
+): Promise<void> {
+  if (mode === 'known-hosts') {
+    await sshConfig.persistKnownHosts(() => profiles.list(), paths);
+    return;
+  }
+  await sshConfig.synchronize(() => profiles.list(), paths);
+}
+
+function profileArtifactMode(profile: ServerProfile): 'none' | 'known-hosts' | 'managed-host' {
+  if (
+    profile.localKey !== undefined &&
+    profile.trustedHostKey !== undefined &&
+    profile.authorization !== undefined
+  ) {
+    return 'managed-host';
+  }
+  return profile.trustedHostKey === undefined ? 'none' : 'known-hosts';
+}
+
+function resolveConfigPaths(sshConfig: SshConfigService): SshConfigPaths {
+  const settings = readRemoteSshSettings();
+  return sshConfig.resolvePaths(settings.configFile);
 }
 
 export async function searchHosts(profiles: ProfileStore): Promise<HostTreeItem | undefined> {

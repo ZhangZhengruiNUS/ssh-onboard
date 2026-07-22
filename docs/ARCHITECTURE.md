@@ -88,6 +88,7 @@ src/
   ssh-onboard\
     config                       # 扩展拥有的 Host 块
     known_hosts                  # 扩展确认过的主机密钥
+    state.json                   # V1 受管文件 SHA-256 基线
     keys\
       <key-id>_ed25519
       <key-id>_ed25519.pub
@@ -120,7 +121,11 @@ Host example-host
 # END ssh-onboard:<profile-id>
 ```
 
-主配置保留原 BOM、换行风格、注释与原始字节；不支持的编码或无法可靠替换时展示手工 Include 指令。受管配置采用 UTF-8 无 BOM、LF 和原子替换。每次更新后执行 `ssh -F <config> -G <alias>` 验证实际展开值。
+主配置保留原 BOM、换行风格、注释与原始字节；不支持的编码或无法可靠替换时安全中止。受管配置采用 UTF-8 无 BOM、LF 和原子替换。每次更新后执行 `ssh -F <config> -G <alias>` 验证实际展开值。
+
+首次保存主机信任时，扩展在同一个带所有权 token 的锁内，按顺序创建空的受管 `config`、写入 `known_hosts`，最后写入 V1 `state.json`。这是“同锁、state 最后写的可恢复提交”，不是跨三个文件的真正原子事务。V1 state 同时记录由 ProfileStore 路径派生的不可逆 authority hash；另一个 VS Code Profile 不得接管或覆盖同一受管 SSH 路径。旧 V1 state 仅在两个受管文件都与当前 ProfileStore 渲染结果逐字节一致时才能绑定 authority。
+
+自动恢复仅接受 Preview.2 遗留的“精确且非空的 `known_hosts`，缺失 state，受管 config 缺失且期望内容为空”。普通运行时失败会在持锁期间按预期内容复核后回滚已完成的 rename。任意一字节差异、损坏 state、无 state 的其他布局、符号链接或应为非空却缺失的 config 都零写入失败。
 
 ## 5. 首次初始化数据流
 
@@ -134,7 +139,7 @@ sequenceDiagram
   participant RS as Remote - SSH
 
   User->>Ext: Initialize Key Access
-  Ext->>Ext: Validate profile and prerequisites
+  Ext->>Ext: Preflight settings, Alias, Include, state
   Ext->>SSH2: Start handshake without password auth
   SSH2->>Host: SSH key exchange
   Host-->>SSH2: Host public key
@@ -145,8 +150,9 @@ sequenceDiagram
   User->>Ext: Enter one-time password
   Ext->>SSH2: Continue password authentication
   SSH2->>Host: Authenticated SFTP/exec
+  Ext->>Ext: Repeat preflight with latest profiles
   Ext->>Host: Safely update authorized_keys
-  Ext->>Ext: Write managed SSH config
+  Ext->>Ext: Recheck hashes and write managed SSH config
   Ext->>OSSH: BatchMode verification with exact key
   OSSH-->>Ext: KEY_OK / failure
   Ext->>OSSH: Verify default directory

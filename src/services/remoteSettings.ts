@@ -7,8 +7,11 @@ export interface RemoteSshSettings {
   readonly configFile?: string;
 }
 
-export function readRemoteSshSettings(): RemoteSshSettings {
-  const configuration = vscode.workspace.getConfiguration('remote.SSH');
+export function readRemoteSshSettings(
+  configuration: Pick<vscode.WorkspaceConfiguration, 'inspect'> = vscode.workspace.getConfiguration(
+    'remote.SSH',
+  ),
+): RemoteSshSettings {
   return {
     ...readGlobalString(configuration, 'path', 'remote.SSH.path', 'sshPath'),
     ...readGlobalString(configuration, 'configFile', 'remote.SSH.configFile', 'configFile'),
@@ -16,7 +19,7 @@ export function readRemoteSshSettings(): RemoteSshSettings {
 }
 
 function readGlobalString(
-  configuration: vscode.WorkspaceConfiguration,
+  configuration: Pick<vscode.WorkspaceConfiguration, 'inspect'>,
   key: string,
   settingName: string,
   resultKey: keyof RemoteSshSettings,

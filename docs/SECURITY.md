@@ -93,6 +93,11 @@ VS Code 扩展并非系统安全沙箱。安装扩展意味着用户信任发布
 - 不重写用户所有 Host 块，不生成 `Host *`、`Match`、`ProxyCommand` 或任意命令。
 - Alias 必须在受控字符集内，并检查用户现有配置和受管配置中的冲突。
 - Include 修改前备份；源 hash 变化时拒绝覆盖。
+- 首次主机信任在同一受管锁内依次写空 `config`、`known_hosts`和最后的 V1 `state.json`；不将这一可恢复提交宣称为跨文件原子事务。
+- Preview.2 自动恢复必须满足精确拓扑和逐字节渲染相等；已被用户修改的受管文件永不自动覆盖。
+- V1 state 使用 ProfileStore authority hash 防止不同 VS Code Profile 对同一受管 SSH 路径相互覆盖；旧的无 authority V1 state 只能在当前渲染与两个文件都精确相等时迁移。
+- 初始化在网络探测前、密码认证后且写入远端前、以及最终本地提交时重新预检。预检失败不调用密码连接，也不修改远端。
+- 所有改变受管渲染结果的操作通过全局配置协调锁串行化；获锁后重读 ProfileStore。锁只有在所有权 token 仍匹配时才会被释放者删除。
 - Windows 上必须能明确读取安全描述符并验证精确 DACL。owner 通过 Windows 原生 `GetNamedSecurityInfoW` 契约读取；仅当 API 成功、返回有效 security descriptor 且 owner SID 指针为空时才判定为明确缺失。owner 可读取为当前用户、Administrators、SYSTEM，或明确缺失；owner 明确缺失时，只有在 DACL 已关闭继承、且恰好以正确继承标志向当前用户和 SYSTEM 各授予一条 FullControl ACE 时才接受。owner 读取异常、模糊结果、未知非空 SID，或无法持久化精确 DACL 时安全中止。
 - 受管文件每次写后使用 `ssh -G` 验证 HostName、User、Port、IdentityFile、known_hosts 和认证策略。
 - BatchMode 使用不 Include 用户配置、且只写一条目标 IdentityFile 的一次性最小配置；`ssh -G` 必须证明展开结果恰好只有目标 IdentityFile，CertificateFile 为 none，ProxyCommand/ProxyJump/LocalCommand 不改变身份、路由或执行行为，并且 HostKeyAlias 精确等于 `ssh-onboard-<profile UUID>`。受管 `known_hosts` 只用这一固定别名绑定该 profile 已确认的 exact key，以隔离共享 endpoint 的不同 profile。
@@ -117,6 +122,7 @@ VS Code 扩展并非系统安全沙箱。安装扩展意味着用户信任发布
 | 密码错误              | 不写 SSH Config Host 块，不部署 key                                     |
 | 公钥部署中断          | 未检测到外部并发修改时原 `authorized_keys` 保持可用；临时文件可安全清理 |
 | 本地配置写入失败      | 保留备份，已部署 key 可通过向导撤销                                     |
+| 配置预检失败          | 远端零写入；按 reason 提供设置、SSH Config 或日志入口                   |
 | BatchMode 失败        | 标记 Needs attention，不自动删 key，给出诊断与撤销入口                  |
 | 默认目录无效          | 密钥保留且连接可用，只阻止自动打开目录                                  |
 | Remote - SSH 启动失败 | 展示可复制的官方 CLI 连接命令，不回滚 SSH 配置                          |

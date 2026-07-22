@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { existsSync, lstatSync, readFileSync } from 'node:fs';
 import { mkdir, open, rename, unlink, writeFile, type FileHandle } from 'node:fs/promises';
 import path from 'node:path';
@@ -29,6 +29,12 @@ interface MutationResult<T> {
   readonly result: T;
 }
 
+interface OwnedStorageLock {
+  readonly handle: FileHandle;
+  readonly path: string;
+  readonly token: string;
+}
+
 export class ProfileStore {
   private mutationTail: Promise<void> = Promise.resolve();
   private readonly profilesFile?: string;
@@ -53,6 +59,11 @@ export class ProfileStore {
       throw new DomainError('INVALID_PROFILE');
     }
     return [...value.profiles].sort((left, right) => left.name.localeCompare(right.name));
+  }
+
+  public get configurationAuthority(): string {
+    const source = this.profilesFile ?? 'ssh-onboard:in-memory-profile-store';
+    return createHash('sha256').update(path.resolve(source).toLowerCase()).digest('hex');
   }
 
   public get(profileId: string): ServerProfile {
@@ -95,43 +106,18 @@ export class ProfileStore {
     const normalized = normalizeProfileDraft(draft);
     this.assertValid(normalized);
     return this.mutate((profiles) => {
-      const current = profiles.find((candidate) => candidate.id === profileId);
-      if (current === undefined) {
-        throw new DomainError('PROFILE_NOT_FOUND');
-      }
-      const endpointChanged =
-        current.host !== normalized.host ||
-        current.port !== normalized.port ||
-        current.username !== normalized.username;
-      const keyStrategyChanged =
-        JSON.stringify(current.keyStrategy) !== JSON.stringify(normalized.keyStrategy);
-      if (
-        (endpointChanged || keyStrategyChanged) &&
-        (current.authorization?.ownership === 'managed' ||
-          current.pendingAuthorization !== undefined)
-      ) {
-        throw new DomainError('LOCAL_CONFIG_CONFLICT', 'revoke-before-edit');
-      }
-      const connectionSettingsChanged =
-        endpointChanged ||
-        keyStrategyChanged ||
-        current.alias !== normalized.alias ||
-        current.defaultPath !== normalized.defaultPath;
-      let next: ServerProfile = { ...current, ...normalized };
-      if (endpointChanged) {
-        next = omitConnectionState(next, true);
-      } else if (keyStrategyChanged) {
-        next = omitConnectionState(next, false);
-      } else if (connectionSettingsChanged) {
-        next = omitProperties(next, ['lastVerifiedAt', 'verificationContext', 'lastErrorCode']);
-      }
-      const result = stripUndefined(next);
-      this.assertAliasAvailable(result.alias, profiles, result.id);
+      const result = this.buildUpdatedProfile(profileId, normalized, profiles);
       return {
         profiles: profiles.map((candidate) => (candidate.id === result.id ? result : candidate)),
         result,
       };
     });
+  }
+
+  public projectUpdateDraft(profileId: string, draft: ProfileDraft): ServerProfile {
+    const normalized = normalizeProfileDraft(draft);
+    this.assertValid(normalized);
+    return this.buildUpdatedProfile(profileId, normalized, this.list());
   }
 
   public async remove(profileId: string): Promise<void> {
@@ -181,7 +167,46 @@ export class ProfileStore {
     } finally {
       await handle.close();
       const owner = readLockToken(operationLock);
-      if (!tokenWritten || owner === token) {
+      if (tokenWritten && owner === token) {
+        await unlink(operationLock).catch(() => undefined);
+      }
+    }
+  }
+
+  public async withConfigurationOperation<T>(operation: () => T | Promise<T>): Promise<T> {
+    if (this.profilesFile === undefined) {
+      return operation();
+    }
+    const operationLock = path.join(
+      path.dirname(this.profilesFile),
+      'configuration.operation.lock',
+    );
+    await mkdir(path.dirname(operationLock), { recursive: true });
+    let handle: FileHandle | undefined;
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      try {
+        handle = await open(operationLock, 'wx', 0o600);
+        break;
+      } catch (error: unknown) {
+        if (!isAlreadyExists(error)) {
+          throw new DomainError('LOCAL_CONFIG_CONFLICT', 'configuration-operation-lock');
+        }
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
+    }
+    if (handle === undefined) {
+      throw new DomainError('LOCAL_CONFIG_CONFLICT', 'configuration-operation-in-progress');
+    }
+    const token = randomUUID();
+    let tokenWritten = false;
+    try {
+      await handle.writeFile(`${JSON.stringify({ token, pid: process.pid })}\n`, 'utf8');
+      tokenWritten = true;
+      return await operation();
+    } finally {
+      await handle.close();
+      const owner = readLockToken(operationLock);
+      if (tokenWritten && owner === token) {
         await unlink(operationLock).catch(() => undefined);
       }
     }
@@ -192,6 +217,45 @@ export class ProfileStore {
     if (errors.length > 0) {
       throw new DomainError('INVALID_PROFILE', errors.join(','));
     }
+  }
+
+  private buildUpdatedProfile(
+    profileId: string,
+    normalized: ProfileDraft,
+    profiles: readonly ServerProfile[],
+  ): ServerProfile {
+    const current = profiles.find((candidate) => candidate.id === profileId);
+    if (current === undefined) {
+      throw new DomainError('PROFILE_NOT_FOUND');
+    }
+    const endpointChanged =
+      current.host !== normalized.host ||
+      current.port !== normalized.port ||
+      current.username !== normalized.username;
+    const keyStrategyChanged =
+      JSON.stringify(current.keyStrategy) !== JSON.stringify(normalized.keyStrategy);
+    if (
+      (endpointChanged || keyStrategyChanged) &&
+      (current.authorization?.ownership === 'managed' || current.pendingAuthorization !== undefined)
+    ) {
+      throw new DomainError('LOCAL_CONFIG_CONFLICT', 'revoke-before-edit');
+    }
+    const connectionSettingsChanged =
+      endpointChanged ||
+      keyStrategyChanged ||
+      current.alias !== normalized.alias ||
+      current.defaultPath !== normalized.defaultPath;
+    let next: ServerProfile = { ...current, ...normalized };
+    if (endpointChanged) {
+      next = omitConnectionState(next, true);
+    } else if (keyStrategyChanged) {
+      next = omitConnectionState(next, false);
+    } else if (connectionSettingsChanged) {
+      next = omitProperties(next, ['lastVerifiedAt', 'verificationContext', 'lastErrorCode']);
+    }
+    const result = stripUndefined(next);
+    this.assertAliasAvailable(result.alias, profiles, result.id);
+    return result;
   }
 
   private assertAliasAvailable(
@@ -263,14 +327,22 @@ export class ProfileStore {
     return run;
   }
 
-  private async acquireStorageLock(): Promise<FileHandle | undefined> {
+  private async acquireStorageLock(): Promise<OwnedStorageLock | undefined> {
     if (this.lockFile === undefined) {
       return undefined;
     }
     await mkdir(path.dirname(this.lockFile), { recursive: true });
     for (let attempt = 0; attempt < 50; attempt += 1) {
       try {
-        return await open(this.lockFile, 'wx', 0o600);
+        const handle = await open(this.lockFile, 'wx', 0o600);
+        const token = randomUUID();
+        try {
+          await handle.writeFile(`${JSON.stringify({ token, pid: process.pid })}\n`, 'utf8');
+          return { handle, path: this.lockFile, token };
+        } catch (error: unknown) {
+          await handle.close().catch(() => undefined);
+          throw error;
+        }
       } catch (error: unknown) {
         if (!isAlreadyExists(error)) {
           throw new DomainError('LOCAL_CONFIG_CONFLICT', 'profile-lock');
@@ -281,12 +353,15 @@ export class ProfileStore {
     throw new DomainError('LOCAL_CONFIG_CONFLICT', 'profile-lock-timeout');
   }
 
-  private async releaseStorageLock(lock: FileHandle | undefined): Promise<void> {
-    if (lock === undefined || this.lockFile === undefined) {
+  private async releaseStorageLock(lock: OwnedStorageLock | undefined): Promise<void> {
+    if (lock === undefined) {
       return;
     }
-    await lock.close();
-    await unlink(this.lockFile).catch(() => undefined);
+    await lock.handle.close();
+    const owner = readLockToken(lock.path);
+    if (owner === lock.token) {
+      await unlink(lock.path).catch(() => undefined);
+    }
   }
 }
 

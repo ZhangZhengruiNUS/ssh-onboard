@@ -4,6 +4,7 @@
   "command.category": "SSH Onboard",
   "command.addHost.title": "Add Host",
   "command.showLogs.title": "Show Logs",
+  "command.openSshConfig.title": "Open SSH Config",
   "command.editHost.title": "Edit Host",
   "command.removeHost.title": "Remove Host",
   "command.initializeHost.title": "Initialize Key Access",

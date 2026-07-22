@@ -51,7 +51,7 @@ export function activate(context: vscode.ExtensionContext): void {
     bootstrap: new BootstrapClient(),
     remoteLayout: new RemoteLayoutService(),
     authorizedKeys: new AuthorizedKeysService(),
-    sshConfig: new SshConfigService(runner, acl),
+    sshConfig: new SshConfigService(runner, acl, profiles.configurationAuthority),
     verification: new VerificationService(runner),
     launcher: new RemoteSshLauncher(),
   };
@@ -72,22 +72,10 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('sshOnboard.refresh', () => tree.refresh()),
     command('sshOnboard.addHost', 'add-host', () => addHost(profiles, tree)),
     command('sshOnboard.editHost', 'edit-host', (item) =>
-      editHost(item, profiles, tree, async (updatedProfiles) => {
-        const settings = readRemoteSshSettings();
-        await services.sshConfig.synchronize(
-          updatedProfiles,
-          services.sshConfig.resolvePaths(settings.configFile),
-        );
-      }),
+      editHost(item, profiles, tree, services.sshConfig),
     ),
     command('sshOnboard.removeHost', 'remove-host', (item) =>
-      removeHost(item, profiles, tree, async (remaining) => {
-        const settings = readRemoteSshSettings();
-        await services.sshConfig.synchronize(
-          remaining,
-          services.sshConfig.resolvePaths(settings.configFile),
-        );
-      }),
+      removeHost(item, profiles, tree, services.sshConfig),
     ),
     command('sshOnboard.initializeHost', 'initialize-host', (item) =>
       initializeHost(item, services),
@@ -101,6 +89,21 @@ export function activate(context: vscode.ExtensionContext): void {
       showDiagnostics(item, profiles, extensionVersion),
     ),
     command('sshOnboard.exportProfiles', 'export-profiles', () => exportProfiles(profiles)),
+    command('sshOnboard.openSshConfig', 'open-ssh-config', async () => {
+      const settings = readRemoteSshSettings();
+      const config = vscode.Uri.file(
+        services.sshConfig.resolvePaths(settings.configFile).userConfig,
+      );
+      try {
+        await vscode.workspace.fs.stat(config);
+      } catch {
+        await vscode.window.showInformationMessage(
+          vscode.l10n.t('The selected SSH config does not exist yet.'),
+        );
+        return;
+      }
+      await vscode.window.showTextDocument(config, { preview: false });
+    }),
     command('sshOnboard.searchHosts', 'search-hosts', async () => {
       const selected = await searchHosts(profiles);
       if (selected !== undefined) {

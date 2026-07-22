@@ -41,8 +41,10 @@ export async function initializeHost(
 ): Promise<void> {
   assertWindows();
   const selected = item?.profile ?? (await pickProfile(services.profiles));
-  await services.profiles.withProfileOperation(selected.id, (profile) =>
-    initializeProfile(profile, services),
+  await services.profiles.withConfigurationOperation(() =>
+    services.profiles.withProfileOperation(selected.id, (profile) =>
+      initializeProfile(profile, services),
+    ),
   );
 }
 
@@ -64,8 +66,12 @@ async function initializeProfile(
   }
 
   const settings = readRemoteSshSettings();
-  const tools = await services.openssh.discover(settings.sshPath);
   const paths = services.sshConfig.resolvePaths(settings.configFile);
+  await services.sshConfig.preflight(() => services.profiles.list(), paths, {
+    id: profile.id,
+    alias: profile.alias,
+  });
+  const tools = await services.openssh.discover(settings.sshPath);
   const localKey = await services.keys.prepare(profile, tools);
   const observation = await services.bootstrap.probeHostKey(profile);
   const trustedHostKey = await confirmHostKey(profile, observation);
@@ -81,7 +87,7 @@ async function initializeProfile(
   };
   await services.profiles.update(profile);
   try {
-    await services.sshConfig.persistKnownHosts(services.profiles.list(), paths);
+    await services.sshConfig.persistKnownHosts(() => services.profiles.list(), paths);
   } catch (error: unknown) {
     await recordFailure(services, profile, error);
     throw error;
@@ -101,6 +107,10 @@ async function initializeProfile(
   let client: Client | undefined;
   try {
     client = await services.bootstrap.connectWithPassword(profile, password, trustedHostKey);
+    await services.sshConfig.preflight(() => services.profiles.list(), paths, {
+      id: profile.id,
+      alias: profile.alias,
+    });
     const plan =
       profile.pendingAuthorization ??
       createDeploymentPlan(localKey.publicKeyLine, profile.id, randomUUID());
@@ -143,8 +153,10 @@ export async function testKeyConnection(
 ): Promise<void> {
   assertWindows();
   const selected = item?.profile ?? (await pickProfile(services.profiles));
-  await services.profiles.withProfileOperation(selected.id, (profile) =>
-    testProfileConnection(profile, services),
+  await services.profiles.withConfigurationOperation(() =>
+    services.profiles.withProfileOperation(selected.id, (profile) =>
+      testProfileConnection(profile, services),
+    ),
   );
 }
 
@@ -166,8 +178,10 @@ export async function connectHost(
 ): Promise<void> {
   assertWindows();
   const selected = item?.profile ?? (await pickProfile(services.profiles));
-  await services.profiles.withProfileOperation(selected.id, (profile) =>
-    connectProfile(profile, services),
+  await services.profiles.withConfigurationOperation(() =>
+    services.profiles.withProfileOperation(selected.id, (profile) =>
+      connectProfile(profile, services),
+    ),
   );
 }
 
@@ -189,8 +203,10 @@ export async function revokeKey(
 ): Promise<void> {
   assertWindows();
   const selected = item?.profile ?? (await pickProfile(services.profiles));
-  await services.profiles.withProfileOperation(selected.id, (profile) =>
-    revokeProfileKey(profile, services),
+  await services.profiles.withConfigurationOperation(() =>
+    services.profiles.withProfileOperation(selected.id, (profile) =>
+      revokeProfileKey(profile, services),
+    ),
   );
 }
 
@@ -258,6 +274,11 @@ async function revokeProfileKey(
     ]);
     profile = cleanProfile;
     await services.profiles.update(profile);
+    const settings = readRemoteSshSettings();
+    await services.sshConfig.synchronize(
+      () => services.profiles.list(),
+      services.sshConfig.resolvePaths(settings.configFile),
+    );
     services.tree.refresh();
   } finally {
     client.end();
@@ -328,7 +349,7 @@ async function applyVerifyAndPersist(
 ): Promise<ServerProfile> {
   const safeProfile = requireLocalKeyAndTrust(profile);
   try {
-    await services.sshConfig.apply(services.profiles.list(), safeProfile, tools, paths);
+    await services.sshConfig.apply(() => services.profiles.list(), safeProfile, tools, paths);
     const result = await services.verification.verify(safeProfile, tools, paths);
     const profileWithoutError = omitProperties(profile, ['lastErrorCode']);
     const next: ServerProfile = {

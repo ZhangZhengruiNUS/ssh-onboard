@@ -4,6 +4,7 @@
   "command.category": "SSH Onboard",
   "command.addHost.title": "添加主机",
   "command.showLogs.title": "显示日志",
+  "command.openSshConfig.title": "打开 SSH 配置",
   "command.editHost.title": "编辑主机",
   "command.removeHost.title": "删除主机",
   "command.initializeHost.title": "初始化密钥访问",

@@ -57,6 +57,11 @@
         "category": "%command.category%"
       },
       {
+        "command": "sshOnboard.openSshConfig",
+        "title": "%command.openSshConfig.title%",
+        "category": "%command.category%"
+      },
+      {
         "command": "sshOnboard.editHost",
         "title": "%command.editHost.title%",
         "category": "%command.category%"
