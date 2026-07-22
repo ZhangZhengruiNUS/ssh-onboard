@@ -65,6 +65,20 @@ suite('authorized_keys transforms', () => {
     assert.equal(result.content.toString('utf8'), '# keep\n');
   });
 
+  test('treats an already absent managed key as a converged revocation', () => {
+    const plan = createDeploymentPlan(publicKey, 'profile-id', 'deployment-id');
+    const result = revokeAuthorizedKey(
+      Buffer.from(
+        'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB other\n',
+      ),
+      plan.deployedPublicKeyLine,
+      plan.deploymentMarker,
+      plan.fingerprint,
+    );
+
+    assert.equal(result.removed, false);
+  });
+
   test('rejects a managed line when another authorization has the same fingerprint', () => {
     const plan = createDeploymentPlan(publicKey, 'profile-id', 'deployment-id');
     const duplicate = publicKey.replace('user@local', 'restricted-copy');
@@ -86,7 +100,7 @@ suite('authorized_keys transforms', () => {
     );
   });
 
-  test('rejects revocation when the exact managed line is missing', () => {
+  test('rejects revocation when the same fingerprint belongs to a different line', () => {
     const plan = createDeploymentPlan(publicKey, 'profile-id', 'deployment-id');
     const external = Buffer.from(publicKey.replace('user@local', 'external-copy'), 'utf8');
 
@@ -99,16 +113,6 @@ suite('authorized_keys transforms', () => {
           plan.fingerprint,
         ),
       (error: unknown) => error instanceof DomainError && error.detail === 'ambiguous-fingerprint',
-    );
-    assert.throws(
-      () =>
-        revokeAuthorizedKey(
-          Buffer.alloc(0),
-          plan.deployedPublicKeyLine,
-          plan.deploymentMarker,
-          plan.fingerprint,
-        ),
-      DomainError,
     );
   });
 });

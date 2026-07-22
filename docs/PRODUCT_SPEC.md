@@ -52,7 +52,7 @@ V0.1 只有在 Windows x64 本地和真实 Linux `sshd` 上完成端到端验证
 - 一次性密码认证，不提供“记住密码”。
 - 生成每主机独立 Ed25519 密钥。
 - 高级选择已有密钥或按组共享密钥。
-- 安全更新标准 Linux 用户的 `~/.ssh/authorized_keys`。
+- 安全更新标准 Linux 用户（包括用户明确选择的 `root`）的 `~/.ssh/authorized_keys`。
 - 维护独立 SSH Config include 文件和独立 `known_hosts`。
 - 指定密钥的 BatchMode 验证、默认目录验证和连接诊断。
 - 调用 Remote - SSH 打开远程默认目录。
@@ -64,7 +64,7 @@ V0.1 只有在 Windows x64 本地和真实 Linux `sshd` 上完成端到端验证
 - 自研 SSH 终端、SFTP 文件系统、远程 Extension Host 或 VS Code Server。
 - FTP/FTPS、云同步、AI、遥测、登录审计、端口转发和商业授权。
 - 自动启用或修改远端 `sshd_config`。
-- 自动提权、`sudo`、root 账号初始化。
+- 自动提权、`sudo`或把普通账号自动切换为 `root`。
 - ProxyJump、ProxyCommand、堡垒机、MFA、OTP、密码过期修改。
 - Windows/macOS/BSD 远端主机。
 - 非标准 `AuthorizedKeysFile`、`AuthorizedKeysCommand`、集中式账号系统。

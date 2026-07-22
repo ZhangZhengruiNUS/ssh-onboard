@@ -39,4 +39,18 @@ suite('Safe log metadata', () => {
     });
     assert.equal(serialized.includes('remote.SSH.configFile'), false);
   });
+
+  test('logs only an allowlisted remote layout reason code', () => {
+    const serialized = serializeLogEvent({
+      code: 'REMOTE_LAYOUT_UNSAFE',
+      reason: 'ssh-directory-permissions',
+      stage: 'initialize-host',
+    });
+
+    assert.deepEqual(JSON.parse(serialized) as unknown, {
+      stage: 'initialize-host',
+      code: 'REMOTE_LAYOUT_UNSAFE',
+      reason: 'ssh-directory-permissions',
+    });
+  });
 });

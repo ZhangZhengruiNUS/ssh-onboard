@@ -5,7 +5,7 @@
 ## Supported scope
 
 - Local: Windows 10/11 x64 with Windows OpenSSH and VS Code Remote - SSH.
-- Remote: a direct, standard Linux OpenSSH server and a non-root user.
+- Remote: a direct, standard Linux OpenSSH server and a Linux account with a writable home directory. Root is supported when privileged key access is intentional.
 - Default key strategy: one dedicated, unencrypted Ed25519 key per host.
 
 ## Known limitations
@@ -15,7 +15,7 @@
 - Opening the configured default folder through the official Remote - SSH extension has not yet completed that end-to-end test.
 - Windows paths must expose a verifiable security descriptor and an exact protected DACL. An explicitly absent owner is accepted only when that DACL contains exactly the current user and SYSTEM; unreadable or ambiguous ACL state fails closed.
 
-Use a disposable test server and a non-privileged account. Do not use this preview for production access.
+Use a disposable test server and account. If testing root, use only a disposable host: the installed key grants privileged passwordless access. Do not use this preview for production access.
 
 ## Install
 

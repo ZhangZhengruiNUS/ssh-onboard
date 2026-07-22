@@ -1,5 +1,6 @@
 import type { DomainErrorCode } from '../core/domainError';
 import type { ConfigConflictReason } from '../core/configConflict';
+import type { RemoteLayoutReason } from '../core/remoteLayoutIssue';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 
@@ -21,7 +22,7 @@ export type SafeLogStage =
 export interface SafeLogEvent {
   readonly code?: DomainErrorCode;
   readonly correlationId?: string;
-  readonly reason?: ConfigConflictReason;
+  readonly reason?: ConfigConflictReason | RemoteLayoutReason;
   readonly stage: SafeLogStage;
 }
 

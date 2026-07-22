@@ -96,6 +96,9 @@ export function revokeAuthorizedKey(
       withoutEnding.equals(expected) && withoutEnding.toString('utf8').endsWith(expectedMarker)
     );
   });
+  if (fingerprintMatches.length === 0) {
+    return { content: source, removed: false };
+  }
   if (matches.length !== 1 || fingerprintMatches.length !== 1) {
     throw new DomainError('AUTHORIZED_KEYS_WRITE_FAILED', 'ambiguous-fingerprint');
   }

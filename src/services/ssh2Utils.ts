@@ -6,7 +6,7 @@ export function openSftp(client: Client): Promise<SFTPWrapper> {
   return new Promise((resolve, reject) => {
     client.sftp((error, sftp) => {
       if (error !== undefined) {
-        reject(new DomainError('REMOTE_LAYOUT_UNSAFE'));
+        reject(new DomainError('REMOTE_LAYOUT_UNSAFE', 'sftp-unavailable'));
       } else {
         resolve(sftp);
       }
@@ -18,7 +18,7 @@ export function execFixed(client: Client, command: string): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     client.exec(command, (error, stream) => {
       if (error !== undefined) {
-        reject(new DomainError('REMOTE_LAYOUT_UNSAFE'));
+        reject(new DomainError('REMOTE_LAYOUT_UNSAFE', 'probe-failed'));
         return;
       }
       const stdout: Buffer[] = [];
@@ -29,7 +29,7 @@ export function execFixed(client: Client, command: string): Promise<Buffer> {
         if (stdoutBytes > 64 * 1024) {
           failed = true;
           stream.destroy();
-          reject(new DomainError('REMOTE_LAYOUT_UNSAFE', 'output-limit'));
+          reject(new DomainError('REMOTE_LAYOUT_UNSAFE', 'probe-output-limit'));
           return;
         }
         stdout.push(chunk);
@@ -42,7 +42,7 @@ export function execFixed(client: Client, command: string): Promise<Buffer> {
         if (code === 0) {
           resolve(Buffer.concat(stdout));
         } else {
-          reject(new DomainError('REMOTE_LAYOUT_UNSAFE'));
+          reject(new DomainError('REMOTE_LAYOUT_UNSAFE', 'probe-failed'));
         }
       });
     });
@@ -61,7 +61,7 @@ export function sftpTryLstat(sftp: SFTPWrapper, remotePath: string): Promise<Sta
       } else if (isMissingSftpError(error)) {
         resolve(undefined);
       } else {
-        reject(new DomainError('REMOTE_LAYOUT_UNSAFE'));
+        reject(new DomainError('REMOTE_LAYOUT_UNSAFE', 'sftp-stat-failed'));
       }
     });
   });
@@ -71,7 +71,7 @@ export function sftpReadFile(sftp: SFTPWrapper, remotePath: string): Promise<Buf
   return new Promise((resolve, reject) => {
     sftp.readFile(remotePath, (error, data) => {
       if (error !== undefined) {
-        reject(new DomainError('REMOTE_LAYOUT_UNSAFE'));
+        reject(new DomainError('REMOTE_LAYOUT_UNSAFE', 'sftp-read-failed'));
       } else {
         resolve(Buffer.isBuffer(data) ? data : Buffer.from(data));
       }
@@ -157,6 +157,7 @@ export function sftpMkdir(sftp: SFTPWrapper, remotePath: string, mode: number): 
   return callbackPromise(
     (callback) => sftp.mkdir(remotePath, { mode }, callback),
     'REMOTE_LAYOUT_UNSAFE',
+    'ssh-directory-create-failed',
   );
 }
 
@@ -191,19 +192,22 @@ export function sftpRmdir(sftp: SFTPWrapper, remotePath: string): Promise<void> 
 function callbackPromise<T>(
   invoke: (callback: (error: Error | null | undefined, value: T) => void) => void,
   code: DomainErrorCode,
+  detail?: string,
 ): Promise<T>;
 function callbackPromise(
   invoke: (callback: (error?: Error | null) => void) => void,
   code: DomainErrorCode,
+  detail?: string,
 ): Promise<void>;
 function callbackPromise<T>(
   invoke: (callback: (error?: Error | null, value?: T) => void) => void,
   code: DomainErrorCode,
+  detail?: string,
 ): Promise<T | void> {
   return new Promise((resolve, reject) => {
     invoke((error, value) => {
       if (error !== undefined && error !== null) {
-        reject(new DomainError(code));
+        reject(new DomainError(code, detail));
       } else {
         resolve(value);
       }

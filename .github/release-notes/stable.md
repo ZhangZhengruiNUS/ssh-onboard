@@ -3,7 +3,7 @@
 ## Supported scope
 
 - Local: Windows 10/11 x64 with Windows OpenSSH and VS Code Remote - SSH.
-- Remote: a direct, standard Linux OpenSSH server and a non-root user.
+- Remote: a direct, standard Linux OpenSSH server and a Linux account with a writable home directory. Root is supported when privileged key access is intentional.
 
 ## Install
 

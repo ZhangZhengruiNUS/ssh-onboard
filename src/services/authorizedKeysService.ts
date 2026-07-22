@@ -24,6 +24,7 @@ const FILE_TYPE_MASK = 0o170000;
 const DIRECTORY_TYPE = 0o040000;
 const REGULAR_FILE_TYPE = 0o100000;
 const SYMBOLIC_LINK_TYPE = 0o120000;
+const MAX_AUTHORIZED_KEYS_BYTES = 16 * 1024 * 1024;
 
 export class AuthorizedKeysService {
   public async deploy(
@@ -63,6 +64,9 @@ export class AuthorizedKeysService {
       const targetMode = originalStats === undefined ? 0o600 : originalStats.mode & 0o777;
       if (appended.content.equals(source)) {
         return plan;
+      }
+      if (appended.content.length > MAX_AUTHORIZED_KEYS_BYTES) {
+        throw new DomainError('REMOTE_LAYOUT_UNSAFE', 'authorized-keys-size');
       }
       await sftpWriteFileDurable(sftp, temporary, appended.content, targetMode).catch(() => {
         throw new DomainError('AUTHORIZED_KEYS_WRITE_FAILED');
@@ -115,7 +119,7 @@ export class AuthorizedKeysService {
       const originalStats = await sftpTryLstat(sftp, target);
       this.assertSafeFile(originalStats, layout);
       if (originalStats === undefined) {
-        throw new DomainError('AUTHORIZED_KEYS_WRITE_FAILED', 'managed-line-missing');
+        return true;
       }
       const source = await sftpReadFile(sftp, target);
       const result = revokeAuthorizedKey(
@@ -125,7 +129,7 @@ export class AuthorizedKeysService {
         authorization.fingerprint,
       );
       if (!result.removed) {
-        throw new DomainError('AUTHORIZED_KEYS_WRITE_FAILED', 'managed-line-missing');
+        return true;
       }
       const targetMode = originalStats.mode & 0o777;
       await sftpWriteFileDurable(sftp, temporary, result.content, targetMode).catch(() => {
@@ -160,17 +164,7 @@ export class AuthorizedKeysService {
       await sftpMkdir(sftp, sshDirectory, 0o700);
       stats = await sftpTryLstat(sftp, sshDirectory);
     }
-    if (
-      stats === undefined ||
-      (stats.mode & FILE_TYPE_MASK) !== DIRECTORY_TYPE ||
-      stats.uid !== uid
-    ) {
-      throw new DomainError('REMOTE_LAYOUT_UNSAFE');
-    }
-    const permissions = stats.mode & 0o777;
-    if ((permissions & 0o077) !== 0 || (permissions & 0o700) !== 0o700) {
-      throw new DomainError('REMOTE_LAYOUT_UNSAFE', 'ssh-directory-mode');
-    }
+    assertSafeSshDirectory(stats, uid);
   }
 
   private async acquireLock(sftp: SFTPWrapper, lock: string): Promise<string> {
@@ -210,22 +204,7 @@ export class AuthorizedKeysService {
   }
 
   private assertSafeFile(stats: Stats | undefined, layout: RemoteLayout): void {
-    if (stats === undefined) {
-      return;
-    }
-    const type = stats.mode & FILE_TYPE_MASK;
-    const permissions = stats.mode & 0o777;
-    if (
-      type === SYMBOLIC_LINK_TYPE ||
-      type !== REGULAR_FILE_TYPE ||
-      stats.uid !== layout.uid ||
-      stats.gid !== layout.gid ||
-      stats.size > 16 * 1024 * 1024 ||
-      (permissions & 0o077) !== 0 ||
-      (permissions & 0o600) !== 0o600
-    ) {
-      throw new DomainError('REMOTE_LAYOUT_UNSAFE');
-    }
+    assertSafeAuthorizedKeysFile(stats, layout.uid);
   }
 
   private async assertInstalled(
@@ -270,6 +249,45 @@ export class AuthorizedKeysService {
     if (digest(current) !== originalHash) {
       throw new DomainError('AUTHORIZED_KEYS_WRITE_FAILED', 'concurrent-change');
     }
+  }
+}
+
+export function assertSafeSshDirectory(
+  stats: Stats | undefined,
+  uid: number,
+): asserts stats is Stats {
+  if (stats === undefined) {
+    throw new DomainError('REMOTE_LAYOUT_UNSAFE', 'ssh-directory-missing');
+  }
+  if ((stats.mode & FILE_TYPE_MASK) !== DIRECTORY_TYPE) {
+    throw new DomainError('REMOTE_LAYOUT_UNSAFE', 'ssh-directory-type');
+  }
+  if (stats.uid !== uid) {
+    throw new DomainError('REMOTE_LAYOUT_UNSAFE', 'ssh-directory-owner');
+  }
+  const permissions = stats.mode & 0o777;
+  if ((permissions & 0o022) !== 0 || (permissions & 0o700) !== 0o700) {
+    throw new DomainError('REMOTE_LAYOUT_UNSAFE', 'ssh-directory-permissions');
+  }
+}
+
+export function assertSafeAuthorizedKeysFile(stats: Stats | undefined, uid: number): void {
+  if (stats === undefined) {
+    return;
+  }
+  const type = stats.mode & FILE_TYPE_MASK;
+  const permissions = stats.mode & 0o777;
+  if (type === SYMBOLIC_LINK_TYPE || type !== REGULAR_FILE_TYPE) {
+    throw new DomainError('REMOTE_LAYOUT_UNSAFE', 'authorized-keys-type');
+  }
+  if (stats.uid !== uid) {
+    throw new DomainError('REMOTE_LAYOUT_UNSAFE', 'authorized-keys-owner');
+  }
+  if (stats.size > MAX_AUTHORIZED_KEYS_BYTES) {
+    throw new DomainError('REMOTE_LAYOUT_UNSAFE', 'authorized-keys-size');
+  }
+  if ((permissions & 0o022) !== 0 || (permissions & 0o600) !== 0o600) {
+    throw new DomainError('REMOTE_LAYOUT_UNSAFE', 'authorized-keys-permissions');
   }
 }
 
