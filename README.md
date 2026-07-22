@@ -46,9 +46,9 @@ SSH Onboard is **not another SSH client**. It is a thin enhancement for Microsof
 
 - Local: Windows x64, VS Code Desktop, and Windows OpenSSH Client.
 - Remote: a directly reachable standard Linux OpenSSH server that allows password and public-key authentication.
-- Account: a normal Linux user with a writable home directory.
+- Account: a Linux user with a writable home directory. Root is supported when privileged key access is intentional.
 
-Root accounts, jump hosts, MFA, nonstandard `AuthorizedKeysFile` layouts, encrypted existing keys, and macOS/Linux clients are outside V0.1's tested scope.
+Using root installs a key that grants privileged passwordless access; prefer a normal account when possible. Jump hosts, MFA, nonstandard `AuthorizedKeysFile` layouts, encrypted existing keys, and macOS/Linux clients are outside V0.1's tested scope.
 
 ## Install
 

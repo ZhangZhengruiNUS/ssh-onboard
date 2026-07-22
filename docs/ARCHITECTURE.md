@@ -217,15 +217,15 @@ sequenceDiagram
 
 ## 8. `authorized_keys` 更新
 
-V0.1 只操作当前普通 Linux 用户的 `$HOME/.ssh/authorized_keys`。流程：
+V0.1 只操作当前明确登录的 Linux 用户（包括 UID `0` 的 `root`）的 `$HOME/.ssh/authorized_keys`，不提权也不使用 `sudo`。流程：
 
-1. 通过固定命令获取 Home 与 UID；用户输入不进入命令文本。Home 必须验证为绝对 POSIX 路径并保存为 `resolvedHome`。
+1. 通过固定命令获取 Home 与 UID；用户输入不进入命令文本。Home 必须验证为绝对 POSIX 路径并保存为 `resolvedHome`；UID `0` 只接受精确的标准 `/root`。
 2. 使用 SFTP `lstat` 拒绝符号链接、非普通文件、非当前用户所有的目标。
-3. 确保 `.ssh` 为 0700，文件为 0600；不存在时按 `umask 077` 创建。
+3. 新建 `.ssh` 使用 0700，新建 `authorized_keys` 使用 0600。已有目录/文件保留原模式，但必须属于当前 UID、所有者分别具有 `rwx`/`rw`，且组和其他用户不可写；因此安全的 0755/0644 也可使用。
 4. 以原子 `mkdir` 创建 `.ssh-onboard.lock`；锁存在则安全中止，不强拆。
 5. 原样读取已有文件并记录内容 hash、大小和修改时间，按 key fingerprint 去重。已有受限或非受限同指纹 key 均视为已存在，不追加副本，并将授权标记为 `external`，禁用扩展撤销。
 6. 需要追加时生成不可预测的 deployment ID，在同目录创建独占临时文件，逐字保留原内容，仅在必要时补换行，再追加规范化的 `keytype base64 ssh-onboard:<profile-id>:<deployment-id>`；同时保存规范化完整行、marker 和 fingerprint。
-7. rename 前重新读取目标并核对内容 hash、大小和修改时间；任何变化都删除临时文件并中止。未变化时 flush、chmod 0600 并同目录 rename 替换；中途失败保留原文件。
+7. rename 前重新读取目标并核对内容 hash、大小和修改时间；任何变化都删除临时文件并中止。未变化时 flush、保留安全的原文件模式（新建时为 0600）并同目录 rename 替换；中途失败保留原文件。
 8. 释放锁并执行指定密钥验证。
 
 公钥 comment 由扩展生成，任何显示名、目录或用户输入都不得进入 Shell。私有锁只协调本扩展实例；hash/元数据复核只能检测已发生的外部变化，不能消除复核与 rename 之间的外部竞态。因此 V0.1 对外部管理员或其他工具同时修改 `authorized_keys` 不作无损保证，检测到变化时保守中止。标准文件系统之外的 ACL、xattr、NFS 和自定义 SELinux 行为不在 V0.1 保证范围内。

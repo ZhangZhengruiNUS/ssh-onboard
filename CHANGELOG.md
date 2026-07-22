@@ -6,6 +6,15 @@ The project follows [Semantic Versioning](https://semver.org/) after its first p
 
 ## [Unreleased]
 
+## [0.1.0-preview.5] - 2026-07-22
+
+### Fixed
+
+- Accept Linux UID `0` as a valid explicitly configured root account while retaining the same host-key, ownership, file-type, locking, and atomic-update checks.
+- Accept common OpenSSH-safe `.ssh` and `authorized_keys` modes such as `755` and `644`; group- or other-writable paths remain blocked.
+- Report a safe, specific remote-layout reason instead of collapsing every post-password inspection failure into one generic error.
+- Converge deploy and revoke retries after an atomic replace succeeded but post-write inspection was interrupted.
+
 ## [0.1.0-preview.4] - 2026-07-22
 
 ### Added
