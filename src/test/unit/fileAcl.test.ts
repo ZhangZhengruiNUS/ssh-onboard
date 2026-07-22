@@ -38,10 +38,31 @@ suite('WindowsFileAcl', () => {
       assert.deepEqual(JSON.parse(request?.nonSecretInput ?? '') as unknown, {
         target: existing,
         createdByUs: false,
+        allowInheritedExact: false,
         mode: 'check-directory',
       });
     } finally {
       await rm(temporary, { recursive: true, force: true });
     }
+  });
+
+  windowsTest('allows an exact inherited ACL only for managed non-secret files', async () => {
+    const requests: ProcessRequest[] = [];
+    const runner = {
+      run: (request: ProcessRequest): Promise<ProcessResult> => {
+        requests.push(request);
+        return Promise.resolve({ exitCode: 0, stdout: '', stderr: '' });
+      },
+    } as ProcessRunner;
+    const acl = new WindowsFileAcl(runner);
+
+    await acl.assertManagedFileSafe('C:\\managed\\state.json');
+
+    assert.deepEqual(JSON.parse(requests[0]?.nonSecretInput ?? '') as unknown, {
+      target: 'C:\\managed\\state.json',
+      createdByUs: false,
+      allowInheritedExact: true,
+      mode: 'check-file',
+    });
   });
 });

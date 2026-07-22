@@ -52,11 +52,16 @@ export class WindowsFileAcl {
     await this.restrict(filePath, false, true);
   }
 
+  public async assertManagedFileSafe(filePath: string): Promise<void> {
+    await this.restrict(filePath, false, true, false, true);
+  }
+
   private async restrict(
     targetPath: string,
     directory: boolean,
     checkOnly = false,
     createdByUs = false,
+    allowInheritedExact = false,
   ): Promise<void> {
     if (process.platform !== 'win32') {
       throw new DomainError('UNSUPPORTED_PLATFORM');
@@ -66,6 +71,7 @@ export class WindowsFileAcl {
       '$target = [string]$request.target',
       '$mode = [string]$request.mode',
       '$createdByUs = [bool]$request.createdByUs',
+      '$allowInheritedExact = [bool]$request.allowInheritedExact',
       '$identity = [System.Security.Principal.WindowsIdentity]::GetCurrent()',
       '$current = $identity.User',
       "$system = [System.Security.Principal.SecurityIdentifier]::new('S-1-5-18')",
@@ -83,7 +89,7 @@ export class WindowsFileAcl {
       '$expectedInheritance = if ($isDirectory) { [System.Security.AccessControl.InheritanceFlags]::ContainerInherit -bor [System.Security.AccessControl.InheritanceFlags]::ObjectInherit } else { [System.Security.AccessControl.InheritanceFlags]::None }',
       '$existingBad = @($existing.Access | Where-Object { $_.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value -notin $allowed -or $_.AccessControlType -ne [System.Security.AccessControl.AccessControlType]::Allow -or $_.FileSystemRights -ne [System.Security.AccessControl.FileSystemRights]::FullControl -or $_.InheritanceFlags -ne $expectedInheritance -or $_.PropagationFlags -ne [System.Security.AccessControl.PropagationFlags]::None })',
       '$existingSids = @($existing.Access | ForEach-Object { $_.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value } | Sort-Object -Unique)',
-      '$existingExact = $existing.AreAccessRulesProtected -and $existing.Access.Count -eq 2 -and $existingBad.Count -eq 0 -and $existingSids.Count -eq 2 -and $current.Value -in $existingSids -and $system.Value -in $existingSids',
+      '$existingExact = ($existing.AreAccessRulesProtected -or $allowInheritedExact) -and $existing.Access.Count -eq 2 -and $existingBad.Count -eq 0 -and $existingSids.Count -eq 2 -and $current.Value -in $existingSids -and $system.Value -in $existingSids',
       'if ($checkOnly) { if (-not $existingExact) { exit 42 }; if (-not $ownerIsTrusted -and -not $ownerIsMissing) { exit 43 }; exit 0 }',
       'if (-not $ownerIsTrusted -and -not $ownerIsMissing -and -not $createdByUs) { exit 43 }',
       'if ($ownerIsMissing -and -not $existingExact -and -not $createdByUs) { exit 43 }',
@@ -109,6 +115,7 @@ export class WindowsFileAcl {
       nonSecretInput: JSON.stringify({
         target: targetPath,
         createdByUs,
+        allowInheritedExact,
         mode: checkOnly
           ? directory
             ? 'check-directory'

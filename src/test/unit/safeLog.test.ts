@@ -24,4 +24,19 @@ suite('Safe log metadata', () => {
     assert.equal(serialized.includes(secret), false);
     assert.equal(serialized.includes('[redacted]'), true);
   });
+
+  test('logs only the allowlisted configuration reason code', () => {
+    const serialized = serializeLogEvent({
+      code: 'LOCAL_CONFIG_CONFLICT',
+      reason: 'remote-setting-workspace',
+      stage: 'initialize-host',
+    });
+
+    assert.deepEqual(JSON.parse(serialized) as unknown, {
+      stage: 'initialize-host',
+      code: 'LOCAL_CONFIG_CONFLICT',
+      reason: 'remote-setting-workspace',
+    });
+    assert.equal(serialized.includes('remote.SSH.configFile'), false);
+  });
 });

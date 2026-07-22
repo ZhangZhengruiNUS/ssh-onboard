@@ -102,10 +102,10 @@ Example Group
 | Edit Host                       | 修改显示名、地址、端口、用户、目录和分组 |
 | Advanced Key Settings           | 选择独立、已有或共享组密钥策略           |
 | Revoke Deployed Key             | 精确移除本扩展部署的目标公钥             |
-| Remove Host                     | 删除本地资料；默认不撤销远端密钥         |
+| Remove Host                     | 删除本地资料；受管或待定授权必须先撤销   |
 | Show Diagnostics                | 显示脱敏诊断和可执行的修复建议           |
 
-删除本地资料与撤销远端访问必须是两个独立动作，避免误删登录能力。
+删除本地资料与撤销远端访问是两个独立动作。对 SSH Onboard 已部署或已进入待定状态的授权，Remove 必须先要求 Revoke，防止丢失远端公钥归属记录。未初始化主机只删除 ProfileStore，不读写 SSH Config；仅保存了主机信任的主机只更新扩展自有文件，用户 SSH Config 保持逐字节不变。
 
 ### 4.3 新增与初始化流程
 

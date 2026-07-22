@@ -1,5 +1,5 @@
 import * as assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -12,6 +12,8 @@ import { ProfileStore } from '../../services/profileStore';
 class MemoryMemento implements vscode.Memento {
   private readonly values = new Map<string, unknown>();
 
+  public constructor(private readonly afterUpdate?: () => void | Promise<void>) {}
+
   public keys(): readonly string[] {
     return [...this.values.keys()];
   }
@@ -22,9 +24,9 @@ class MemoryMemento implements vscode.Memento {
     return (this.values.get(key) as T | undefined) ?? defaultValue;
   }
 
-  public update(key: string, value: unknown): Thenable<void> {
+  public async update(key: string, value: unknown): Promise<void> {
     this.values.set(key, value);
-    return Promise.resolve();
+    await this.afterUpdate?.();
   }
 }
 
@@ -121,6 +123,71 @@ suite('ProfileStore', () => {
       );
       release();
       await active;
+    } finally {
+      await rm(storage, { recursive: true, force: true });
+    }
+  });
+
+  test('serializes configuration operations across extension hosts', async () => {
+    const storage = await mkdtemp(path.join(os.tmpdir(), 'ssh-onboard-configuration-'));
+    try {
+      const first = new ProfileStore(new MemoryMemento(), storage);
+      const second = new ProfileStore(new MemoryMemento(), storage);
+      let release!: () => void;
+      let started!: () => void;
+      const startedPromise = new Promise<void>((resolve) => {
+        started = resolve;
+      });
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const order: string[] = [];
+      const active = first.withConfigurationOperation(async () => {
+        order.push('first-start');
+        started();
+        await gate;
+        order.push('first-end');
+      });
+      await startedPromise;
+      const waiting = second.withConfigurationOperation(() => {
+        order.push('second');
+      });
+      await new Promise((resolve) => setTimeout(resolve, 75));
+      assert.deepEqual(order, ['first-start']);
+      release();
+      await Promise.all([active, waiting]);
+      assert.deepEqual(order, ['first-start', 'first-end', 'second']);
+    } finally {
+      await rm(storage, { recursive: true, force: true });
+    }
+  });
+
+  test('does not remove a configuration lock after its ownership token changes', async () => {
+    const storage = await mkdtemp(path.join(os.tmpdir(), 'ssh-onboard-lock-owner-'));
+    try {
+      const store = new ProfileStore(new MemoryMemento(), storage);
+      const lockFile = path.join(storage, 'configuration.operation.lock');
+      await store.withConfigurationOperation(async () => {
+        await writeFile(lockFile, '{"token":"replacement"}\n', 'utf8');
+      });
+      assert.equal(await readFile(lockFile, 'utf8'), '{"token":"replacement"}\n');
+    } finally {
+      await rm(storage, { recursive: true, force: true });
+    }
+  });
+
+  test('does not remove a profile storage lock after its ownership token changes', async () => {
+    const storage = await mkdtemp(path.join(os.tmpdir(), 'ssh-onboard-storage-lock-owner-'));
+    try {
+      const lockFile = path.join(storage, 'profiles.lock');
+      const state = new MemoryMemento(() =>
+        writeFile(lockFile, '{"token":"replacement"}\n', 'utf8'),
+      );
+      const store = new ProfileStore(state, storage);
+
+      await store.add(draft);
+
+      assert.equal(await readFile(lockFile, 'utf8'), '{"token":"replacement"}\n');
     } finally {
       await rm(storage, { recursive: true, force: true });
     }

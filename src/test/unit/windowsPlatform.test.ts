@@ -5,6 +5,7 @@ import path from 'node:path';
 
 import { WindowsFileAcl } from '../../platform/windows/fileAcl';
 import { DomainError } from '../../core/domainError';
+import { omitProperties } from '../../core/objects';
 import { WindowsOpenSsh } from '../../platform/windows/openssh';
 import { ProcessRunner } from '../../platform/windows/processRunner';
 import { SshConfigService } from '../../services/sshConfigService';
@@ -13,7 +14,7 @@ import type { ServerProfile } from '../../domain/profiles';
 const windowsTest = process.platform === 'win32' ? test : test.skip;
 
 suite('Windows platform integration', function () {
-  this.timeout(30_000);
+  this.timeout(60_000);
   windowsTest('discovers OpenSSH and writes a config that ssh -G accepts', async () => {
     const temporary = await mkdtemp(path.join(os.homedir(), 'ssh-onboard-test-'));
     try {
@@ -21,7 +22,7 @@ suite('Windows platform integration', function () {
       const acl = new WindowsFileAcl(runner);
       const openssh = new WindowsOpenSsh(runner);
       const tools = await openssh.discover();
-      const service = new SshConfigService(runner, acl);
+      const service = new SshConfigService(runner, acl, 'a'.repeat(64));
       const defaultPaths = service.resolvePaths();
       assert.equal(defaultPaths.userConfig, path.join(os.homedir(), '.ssh', 'config'));
       assert.equal(defaultPaths.managedDirectory, path.join(os.homedir(), '.ssh', 'ssh-onboard'));
@@ -62,7 +63,7 @@ suite('Windows platform integration', function () {
       };
 
       try {
-        await service.persistKnownHosts([profile], paths);
+        await service.persistKnownHosts([omitProperties(profile, ['authorization'])], paths);
       } catch (error: unknown) {
         if (error instanceof DomainError) {
           const diagnostic = await runner.run({
@@ -105,9 +106,15 @@ suite('Windows platform integration', function () {
         throw error;
       }
       await acl.assertDirectorySafe(paths.managedDirectory);
+      await Promise.all([
+        acl.assertManagedFileSafe(paths.managedConfig),
+        acl.assertManagedFileSafe(paths.knownHosts),
+        acl.assertManagedFileSafe(paths.managedState),
+      ]);
       assert.match(await readFile(paths.knownHosts, 'utf8'), /^ssh-onboard-/u);
       await assert.rejects(readFile(paths.userConfig), { code: 'ENOENT' });
-      await assert.rejects(readFile(paths.managedConfig), { code: 'ENOENT' });
+      assert.equal(await readFile(paths.managedConfig, 'utf8'), '');
+      assert.match(await readFile(paths.managedState, 'utf8'), /"schemaVersion":1/u);
 
       await service.apply(
         [profile],

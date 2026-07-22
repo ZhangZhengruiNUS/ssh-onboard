@@ -87,6 +87,16 @@ npm run package:vsix
 
 预览版用于重要服务器前请阅读 [SECURITY.md](SECURITY.md)。安全问题请通过其中的私密渠道报告，不要创建公开 Issue。
 
+## 配置故障排查
+
+SSH Onboard 遇到不明确的 Remote - SSH 设置或 SSH 文件时会安全中止，不会接管现有 `Host` 块，也不会覆盖外部修改过的受管文件。
+
+- 如果 `remote.SSH.path` 或 `remote.SSH.configFile` 设置在 Workspace 范围，请移到 User 设置后重试。
+- 如果 SSH 别名已存在，请编辑主机并换用唯一别名。
+- 如果受管文件在 SSH Onboard 外部发生变化，请通过错误操作打开 SSH Config 或日志，检查后再重试。
+- 在确认指纹后取消密码输入而产生的精确 Preview.2 遗留会自动恢复；任何未知差异均保持不动。
+- 删除从未初始化的主机只改 ProfileStore。删除只保存了主机信任的资料时，只更新 SSH Onboard 自有文件，不修改用户 SSH Config。
+
 ## 项目文档
 
 - [产品需求规格](docs/PRODUCT_SPEC.md)

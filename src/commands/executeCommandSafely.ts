@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import * as vscode from 'vscode';
 
+import { configConflictReason, type ConfigConflictReason } from '../core/configConflict';
 import { DomainError, normalizeDomainError } from '../core/domainError';
 import type { ExtensionLogger } from '../logging/extensionLogger';
 import type { SafeLogStage } from '../logging/safeLog';
@@ -26,12 +27,31 @@ export async function executeCommandSafely(
       return;
     }
 
-    logger.error({ code: domainError.code, correlationId, stage });
-    await vscode.window.showErrorMessage(errorMessage(domainError));
+    const reason =
+      domainError.code === 'LOCAL_CONFIG_CONFLICT'
+        ? configConflictReason(domainError.detail)
+        : undefined;
+    logger.error({
+      code: domainError.code,
+      correlationId,
+      ...(reason === undefined ? {} : { reason }),
+      stage,
+    });
+    const action = await vscode.window.showErrorMessage(
+      errorMessage(domainError, reason),
+      ...errorActions(reason),
+    );
+    if (action === vscode.l10n.t('Open Remote - SSH Settings')) {
+      await vscode.commands.executeCommand('workbench.action.openSettings', 'remote.SSH');
+    } else if (action === vscode.l10n.t('Open SSH Config')) {
+      await vscode.commands.executeCommand('sshOnboard.openSshConfig');
+    } else if (action === vscode.l10n.t('Show SSH Onboard Logs')) {
+      logger.show();
+    }
   }
 }
 
-function errorMessage(error: DomainError): string {
+function errorMessage(error: DomainError, reason?: ConfigConflictReason): string {
   switch (error.code) {
     case 'AUTH_FAILED':
       return vscode.l10n.t(
@@ -68,9 +88,7 @@ function errorMessage(error: DomainError): string {
         'The exact configured key could not complete a non-interactive SSH login.',
       );
     case 'LOCAL_CONFIG_CONFLICT':
-      return vscode.l10n.t(
-        'SSH configuration changed or conflicts with a managed host. No conflicting file was overwritten.',
-      );
+      return configConflictMessage(reason ?? 'unknown');
     case 'PREREQUISITE_MISSING':
       return vscode.l10n.t('A required Windows OpenSSH tool or configuration is unavailable.');
     case 'PROFILE_NOT_FOUND':
@@ -92,4 +110,75 @@ function errorMessage(error: DomainError): string {
     default:
       return vscode.l10n.t('The operation could not be completed ({0}).', error.code);
   }
+}
+
+function configConflictMessage(reason: ConfigConflictReason): string {
+  switch (reason) {
+    case 'alias-in-use':
+      return vscode.l10n.t(
+        'This SSH alias is already defined. Choose a different alias; the existing Host block was not changed.',
+      );
+    case 'authorization-requires-revoke':
+      return vscode.l10n.t(
+        'Revoke the SSH Onboard managed key before changing or removing this host.',
+      );
+    case 'remote-setting-workspace':
+      return vscode.l10n.t(
+        'Remote - SSH path or configFile is set at Workspace scope. Move it to User settings before continuing.',
+      );
+    case 'remote-setting-invalid':
+      return vscode.l10n.t(
+        'A Remote - SSH path or configFile setting is empty or invalid. Review User settings before continuing.',
+      );
+    case 'include-conflict':
+      return vscode.l10n.t(
+        'The SSH config contains a conflicting SSH Onboard Include directive. No config file was changed.',
+      );
+    case 'managed-file-external-change':
+      return vscode.l10n.t(
+        'An SSH Onboard managed file changed outside the extension. Review it before retrying; nothing was overwritten.',
+      );
+    case 'managed-state-invalid':
+      return vscode.l10n.t(
+        'SSH Onboard managed state is damaged or unsupported. Nothing was overwritten.',
+      );
+    case 'lock-busy':
+      return vscode.l10n.t(
+        'Another SSH Onboard operation is still running, or a previous operation left a lock. Try again after it finishes.',
+      );
+    case 'concurrent-change':
+      return vscode.l10n.t(
+        'SSH configuration changed while this operation was running. Review the latest file and retry.',
+      );
+    case 'unsafe-config-file':
+      return vscode.l10n.t(
+        'An SSH configuration path is not a supported regular UTF-8 file. Nothing was changed.',
+      );
+    case 'config-verification-failed':
+      return vscode.l10n.t(
+        'Windows OpenSSH did not resolve the managed host exactly as expected. Review the SSH config before retrying.',
+      );
+    case 'unknown':
+      return vscode.l10n.t(
+        'SSH configuration changed or conflicts with a managed host. No conflicting file was overwritten.',
+      );
+  }
+}
+
+function errorActions(reason: ConfigConflictReason | undefined): string[] {
+  if (reason === 'remote-setting-workspace' || reason === 'remote-setting-invalid') {
+    return [vscode.l10n.t('Open Remote - SSH Settings'), vscode.l10n.t('Show SSH Onboard Logs')];
+  }
+  if (
+    reason === 'alias-in-use' ||
+    reason === 'include-conflict' ||
+    reason === 'managed-file-external-change' ||
+    reason === 'managed-state-invalid' ||
+    reason === 'concurrent-change' ||
+    reason === 'unsafe-config-file' ||
+    reason === 'config-verification-failed'
+  ) {
+    return [vscode.l10n.t('Open SSH Config'), vscode.l10n.t('Show SSH Onboard Logs')];
+  }
+  return [vscode.l10n.t('Show SSH Onboard Logs')];
 }

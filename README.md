@@ -87,6 +87,16 @@ Install the generated `artifacts/ssh-onboard-<version>.vsix` only in a test VS C
 
 Read [SECURITY.md](SECURITY.md) before using preview builds with valuable infrastructure. Report vulnerabilities through its private reporting channel, not a public issue.
 
+## Configuration troubleshooting
+
+SSH Onboard fails closed when Remote - SSH settings or SSH files are ambiguous. It does not replace an existing `Host` block or an externally modified managed file.
+
+- If `remote.SSH.path` or `remote.SSH.configFile` is set in Workspace settings, move it to User settings and retry.
+- If an SSH alias already exists, edit the host and choose the suggested unique alias.
+- If a managed file changed outside SSH Onboard, open the SSH config or logs from the error action and review the file before retrying.
+- An exact Preview.2 residue created by cancelling after fingerprint confirmation is recovered automatically. Any unknown difference remains untouched.
+- Removing a host that has never been initialized changes only SSH Onboard's profile store. A host with only saved trust updates only SSH Onboard-owned files and does not change the user SSH config.
+
 ## Project documents
 
 - [Product specification](docs/PRODUCT_SPEC.md)
