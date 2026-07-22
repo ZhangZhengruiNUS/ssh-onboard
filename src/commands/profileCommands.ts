@@ -15,9 +15,10 @@ export async function addHost(
   draft: ProfileDraft,
   profiles: ProfileStore,
   tree: HostTreeDataProvider,
-): Promise<void> {
-  await profiles.add(draft);
+): Promise<ServerProfile> {
+  const profile = await profiles.add(draft);
   tree.refresh();
+  return profile;
 }
 
 export async function editHost(

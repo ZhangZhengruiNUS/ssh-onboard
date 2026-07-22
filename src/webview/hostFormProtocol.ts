@@ -23,6 +23,8 @@ export interface HostFormDraftDto {
   readonly keyStrategy: HostFormKeyStrategyDto;
 }
 
+export type HostFormSaveIntent = 'save-only' | 'save-and-initialize';
+
 export type HostFormToExtensionMessage =
   | { readonly type: 'ready' }
   | { readonly type: 'dirty'; readonly revision: string; readonly dirty: boolean }
@@ -32,7 +34,12 @@ export type HostFormToExtensionMessage =
       readonly sequence: number;
       readonly draft: HostFormDraftDto;
     }
-  | { readonly type: 'save'; readonly revision: string; readonly draft: HostFormDraftDto }
+  | {
+      readonly type: 'save';
+      readonly revision: string;
+      readonly intent: HostFormSaveIntent;
+      readonly draft: HostFormDraftDto;
+    }
   | { readonly type: 'pickExistingKey'; readonly revision: string }
   | { readonly type: 'cancel'; readonly revision: string };
 
@@ -101,10 +108,11 @@ export function parseHostFormMessage(value: unknown): HostFormToExtensionMessage
         draft: parseDraft(value.draft),
       };
     case 'save':
-      assertExactKeys(value, ['type', 'revision', 'draft']);
+      assertExactKeys(value, ['type', 'revision', 'intent', 'draft']);
       return {
         type: 'save',
         revision: requiredRevision(value.revision),
+        intent: requiredSaveIntent(value.intent),
         draft: parseDraft(value.draft),
       };
     case 'pickExistingKey':
@@ -114,6 +122,13 @@ export function parseHostFormMessage(value: unknown): HostFormToExtensionMessage
     default:
       throw new HostFormProtocolError('invalid');
   }
+}
+
+function requiredSaveIntent(value: unknown): HostFormSaveIntent {
+  if (value !== 'save-only' && value !== 'save-and-initialize') {
+    throw new HostFormProtocolError('invalid');
+  }
+  return value;
 }
 
 export function assertHostFormDtoSafe(value: HostFormDraftDto): void {

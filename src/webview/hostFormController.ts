@@ -24,6 +24,7 @@ import {
   type ExtensionToHostFormMessage,
   type HostFormDraftDto,
   type HostFormField,
+  type HostFormSaveIntent,
 } from './hostFormProtocol';
 import { HostFormSession, HostFormSessionError } from './hostFormSession';
 
@@ -40,6 +41,7 @@ export interface HostFormControllerOptions {
   readonly profiles: ProfileStore;
   readonly tree: HostTreeDataProvider;
   readonly sshConfig: SshConfigService;
+  readonly initializeHost: (profileId: string) => Promise<void>;
   readonly runSafely: (stage: SafeLogStage, operation: () => Promise<void>) => Promise<void>;
 }
 
@@ -212,7 +214,7 @@ export class HostFormController implements vscode.Disposable {
         await this.validate(message.revision, message.sequence, message.draft);
         return;
       }
-      await this.save(message.revision, message.draft);
+      await this.save(message.revision, message.intent, message.draft);
     } catch (error: unknown) {
       await this.reportFailure(normalizeSessionError(error));
     }
@@ -320,13 +322,18 @@ export class HostFormController implements vscode.Disposable {
     }
   }
 
-  private async save(revision: string, dto: HostFormDraftDto): Promise<void> {
+  private async save(
+    revision: string,
+    intent: HostFormSaveIntent,
+    dto: HostFormDraftDto,
+  ): Promise<void> {
     const target = this.target;
     const session = this.session;
     if (target === undefined || session === undefined) {
       throw new DomainError('INVALID_PROFILE', 'host-form-session');
     }
     let succeeded = false;
+    let savedProfileId: string | undefined;
     await this.options.runSafely(stageFor(target), async () => {
       const draft = this.toProfileDraftSafely(dto, revision, false);
       const errors = validateProfileDraft(draft);
@@ -354,7 +361,8 @@ export class HostFormController implements vscode.Disposable {
       }
       const committedDraft = this.toProfileDraftSafely(dto, revision, true);
       if (target.mode === 'add') {
-        await addHost(committedDraft, this.options.profiles, this.options.tree);
+        const profile = await addHost(committedDraft, this.options.profiles, this.options.tree);
+        savedProfileId = profile.id;
       } else {
         const profileId = target.profileId;
         if (profileId === undefined) {
@@ -379,6 +387,9 @@ export class HostFormController implements vscode.Disposable {
     });
     if (succeeded) {
       this.panel?.dispose();
+      if (intent === 'save-and-initialize' && savedProfileId !== undefined) {
+        await this.options.initializeHost(savedProfileId);
+      }
       return;
     }
     await this.post({

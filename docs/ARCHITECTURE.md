@@ -83,10 +83,10 @@ src/
 ### 3.1 Add/Edit Webview 边界
 
 - `sshOnboard.addHost` 与 `sshOnboard.editHost` 保持稳定命令 ID，由单例 `WebviewPanel` 在编辑区显示表单。
-- 浏览器 DTO 只含名称、endpoint、Alias、默认目录、分组和密钥策略标签；不得含私钥路径、公钥、指纹、Host Key、授权行或 deployment marker。
+- Host Form DTO 只含名称、endpoint、Alias、默认目录、分组和密钥策略标签；不得含私钥路径、公钥、指纹、Host Key、授权行或 deployment marker。独立的 Host Identity Webview 只接收 endpoint、算法和 SHA256 指纹，不接收 host-key base64 或任何认证材料。
 - Existing Key 始终由 Extension Host 打开原生文件选择器。表单只收到文件名标签和随机 token；token 绑定 panel、profile 与编辑 revision，十分钟过期且成功使用后拒绝重放。
 - 浏览器校验仅改善输入体验。保存时 Extension Host 重新解析严格 schema、检查 revision、重读 ProfileStore、执行 Alias/配置预检，并通过原有命令与服务完成持久化。
-- 新增未初始化 Profile 本身不写 SSH 文件；非 Alias 的本地配置问题可在表单中提示，但不阻止保存资料。Initialize 在任何网络或远端写入前仍执行完整、强制的配置预检。
+- 新增表单的主动作是 Save and initialize，保存成功后直接进入初始化；Save only 作为延后设置的次要动作。新增未初始化 Profile 本身不写 SSH 文件；Initialize 在任何网络或远端写入前仍执行完整、强制的配置预检。
 - Webview 使用 `default-src 'none'`、nonce 脚本、仅 `media/` 的 `localResourceRoots`、空 `connect-src`，不启用 command URI，也不引入前端框架或已弃用 UI Toolkit。
 
 ## 4. 本地持久化
@@ -155,14 +155,15 @@ sequenceDiagram
   participant OSSH as Windows OpenSSH
   participant RS as Remote - SSH
 
-  User->>Ext: Initialize Key Access
+  User->>Ext: Save and initialize (or Initialize Key Access later)
+  Ext-->>User: Show staged progress notification
   Ext->>Ext: Preflight settings, Alias, Include, state
   Ext->>SSH2: Start handshake without password auth
   SSH2->>Host: SSH key exchange
   Host-->>SSH2: Host public key
   SSH2-->>Ext: hostVerifier(raw key)
-  Ext-->>User: Show algorithm + SHA256 fingerprint
-  User->>Ext: Confirm verified fingerprint
+  Ext-->>User: Open selectable Host Identity page
+  User->>Ext: Trust first-use key or paste independently verified fingerprint
   Ext->>Ext: Persist exact managed known_hosts entry
   User->>Ext: Enter one-time password
   Ext->>SSH2: Continue password authentication
@@ -186,12 +187,14 @@ sequenceDiagram
 - `SHA256:<base64>` 指纹；
 - OpenSSH `known_hosts` 所需的公钥数据。
 
-用户界面提供两种核验方式：
+用户界面提供两种首次信任方式：
 
-1. 基础模式：展示指纹，用户确认已通过云控制台或管理员独立核对。
-2. 高级模式：预先粘贴期望指纹，扩展做精确匹配。
+1. 推荐的便捷模式：在可复制的 Host Identity 页面选择“信任并继续”，按 TOFU 固定本次观察到的精确 key。界面必须说明这不能独立证明首次连接身份。
+2. 高保证模式：粘贴由管理员或服务器控制台独立取得的期望指纹，扩展做精确匹配。
 
-非 22 端口用 `[hostname]:port` 写入。已信任主机的 key 发生变化时必须硬失败，不提供“一键忽略”；用户只能在查看旧/新指纹并重新带外核验后执行 Replace Trusted Host Key。V0.1 固定 `UpdateHostKeys no`，不会自动学习服务器声明的其他主机密钥；未来如支持轮换，必须为每一把新增 key 单独展示、带外确认并原子更新，不能静默扩大信任集合。
+非 22 端口用 `[hostname]:port` 写入。已信任主机的 key、算法或指纹发生变化时必须硬失败，不提供“一键忽略”；用户只能在查看旧/新身份并输入独立取得的新指纹后替换信任。V0.1 固定 `UpdateHostKeys no`，不会自动学习服务器声明的其他主机密钥；未来如支持轮换，必须为每一把新增 key 单独展示、带外确认并原子更新，不能静默扩大信任集合。
+
+发现、密钥准备、认证、远端检查、部署和验证通过连续的 VS Code Progress Notification 显示明确阶段。只有可安全终止的发现阶段提供取消；取消必须触发 `AbortSignal` 并关闭 ssh2 client。主机身份页面和密码输入期间不持有全局配置锁；全局锁包围短暂的本地信任提交、远端写入前的最新预检，以及最终 SSH Config apply 与 passwordless verification transaction。
 
 ## 7. 密钥管理
 

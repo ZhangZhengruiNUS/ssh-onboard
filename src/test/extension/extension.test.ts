@@ -6,7 +6,7 @@ import { addHost } from '../../commands/profileCommands';
 import { DomainError } from '../../core/domainError';
 import { ProfileStore } from '../../services/profileStore';
 import { readRemoteSshSettings } from '../../services/remoteSettings';
-import { HostTreeDataProvider } from '../../views/hostTreeDataProvider';
+import { HostTreeDataProvider, HostTreeItem } from '../../views/hostTreeDataProvider';
 
 suite('SSH Onboard extension', () => {
   test('activates and registers its public commands', async () => {
@@ -41,6 +41,54 @@ suite('SSH Onboard extension', () => {
     const children = provider.getChildren();
 
     assert.deepEqual(children, []);
+  });
+
+  test('clicking a host initializes until it is ready, then opens Remote - SSH', () => {
+    const setupProfile = {
+      schemaVersion: 1 as const,
+      id: '00000000-0000-4000-8000-000000000001',
+      name: 'Test host',
+      alias: 'test-host',
+      host: '192.0.2.10',
+      port: 22,
+      username: 'developer',
+      platform: 'linux' as const,
+      keyStrategy: {
+        kind: 'generated-per-host' as const,
+        keyId: '00000000-0000-4000-8000-000000000002',
+      },
+    };
+    assert.equal(new HostTreeItem(setupProfile).command?.command, 'sshOnboard.initializeHost');
+
+    const readyProfile = {
+      ...setupProfile,
+      localKey: {
+        keyId: setupProfile.keyStrategy.keyId,
+        privateKeyPath: 'C:\\managed-key',
+        fingerprint: 'SHA256:local-key',
+        publicKeyLine: 'ssh-ed25519 AAAA test',
+      },
+      trustedHostKey: {
+        algorithm: 'ssh-ed25519',
+        fingerprint: 'SHA256:host-key',
+        keyBase64: 'AAAA',
+        knownHostsHost: '192.0.2.10',
+        trustedAt: '2026-07-22T00:00:00.000Z',
+      },
+      authorization: {
+        ownership: 'external' as const,
+        fingerprint: 'SHA256:local-key',
+        detectedAt: '2026-07-22T00:00:00.000Z',
+      },
+      lastVerifiedAt: '2026-07-22T00:00:00.000Z',
+      verificationContext: {
+        sshPath: 'C:\\Windows\\System32\\OpenSSH\\ssh.exe',
+        configFile: 'C:\\Users\\developer\\.ssh\\config',
+        keyFingerprint: 'SHA256:local-key',
+        hostKeyFingerprint: 'SHA256:host-key',
+      },
+    };
+    assert.equal(new HostTreeItem(readyProfile).command?.command, 'sshOnboard.connectHost');
   });
 
   test('reports a workspace-scoped Remote - SSH config setting exactly', () => {

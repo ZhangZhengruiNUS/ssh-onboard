@@ -30,8 +30,10 @@ export function renderHostFormHtml(
   <main class="page-shell"
     data-add-title="${text('Add SSH host')}"
     data-edit-title="${text('Edit SSH host')}"
-    data-save-host="${text('Save host')}"
+    data-save-initialize="${text('Save and initialize')}"
     data-save-changes="${text('Save changes')}"
+    data-add-hint="${text('Save and initialize checks the host identity, requests the password once, and installs the SSH key.')}"
+    data-edit-hint="${text('Saving changes does not reconnect automatically.')}"
     data-use-alias="${text('Use suggested alias')}"
     data-checking="${text('Checking host details...')}"
     data-review="${text('Review the highlighted fields.')}"
@@ -127,10 +129,11 @@ export function renderHostFormHtml(
 
       <div id="form-status" class="form-status" role="status" aria-live="polite"></div>
       <footer class="form-footer">
-        <p>${text('Fields marked with * are required.')}</p>
+        <p id="footer-hint">${text('Save and initialize checks the host identity, requests the password once, and installs the SSH key.')}</p>
         <div class="footer-actions">
           <button id="cancel" class="secondary-button" type="button">${text('Cancel')}</button>
-          <button id="save" class="primary-button" type="submit">${text('Save host')}</button>
+          <button id="save-only" class="secondary-button" type="button">${text('Save only')}</button>
+          <button id="save" class="primary-button" type="submit">${text('Save and initialize')}</button>
         </div>
       </footer>
     </form>

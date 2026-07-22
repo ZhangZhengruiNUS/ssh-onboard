@@ -73,9 +73,12 @@ export class HostTreeItem extends vscode.TreeItem {
     this.description = statusLabel(status);
     this.tooltip = createTooltip(profile, status);
     this.iconPath = statusIcon(status);
+    const ready = status === 'ready';
     this.command = {
-      command: 'sshOnboard.connectHost',
-      title: vscode.l10n.t('Connect and Open Default Folder'),
+      command: ready ? 'sshOnboard.connectHost' : 'sshOnboard.initializeHost',
+      title: ready
+        ? vscode.l10n.t('Connect and Open Default Folder')
+        : vscode.l10n.t('Initialize Key Access'),
       arguments: [this],
     };
   }

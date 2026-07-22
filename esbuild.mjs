@@ -23,11 +23,14 @@ const extensionContext = await esbuild.context({
 
 const webviewContext = await esbuild.context({
   bundle: true,
-  entryPoints: ['src/webview/hostFormClient.ts'],
+  entryPoints: {
+    hostForm: 'src/webview/hostFormClient.ts',
+    hostKeyReview: 'src/webview/hostKeyReviewClient.ts',
+  },
   format: 'iife',
   logLevel: 'info',
   minify: production,
-  outfile: 'media/hostForm.js',
+  outdir: 'media',
   platform: 'browser',
   sourcemap: production ? false : 'linked',
   sourcesContent: false,

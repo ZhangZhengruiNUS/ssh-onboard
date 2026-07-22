@@ -169,7 +169,8 @@
 Fresh Windows/VS Code profile
 → Install local VSIX
 → Add host
-→ Verify fingerprint out of band
+→ Save and initialize
+→ Review the selectable fingerprint and choose TOFU or independent verification
 → Enter password once
 → Deploy key
 → BatchMode passes

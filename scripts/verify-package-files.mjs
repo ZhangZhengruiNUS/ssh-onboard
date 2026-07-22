@@ -15,6 +15,8 @@ const expectedFiles = [
   'media/activitybar.svg',
   'media/hostForm.css',
   'media/hostForm.js',
+  'media/hostKeyReview.css',
+  'media/hostKeyReview.js',
   'media/host-form.png',
   'package.json',
   'package.nls.json',

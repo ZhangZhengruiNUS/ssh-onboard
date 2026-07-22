@@ -1,8 +1,10 @@
 import * as assert from 'node:assert/strict';
 import { generateKeyPairSync } from 'node:crypto';
+import { createServer as createTcpServer, type Socket } from 'node:net';
 
 import { Server, type AuthContext, type Connection } from 'ssh2';
 
+import { DomainError } from '../../core/domainError';
 import type { ServerProfile, TrustedHostKey } from '../../domain/profiles';
 import { knownHostsAddress } from '../../domain/hostKeys';
 import { BootstrapClient } from '../../services/bootstrapClient';
@@ -33,6 +35,54 @@ suite('BootstrapClient', function () {
     } finally {
       await fixture.close();
     }
+  });
+
+  test('stops before connecting when host-key discovery is cancelled', async () => {
+    const abort = new AbortController();
+    abort.abort();
+    const profile: ServerProfile = { ...profileBase, port: 22 };
+
+    await assert.rejects(
+      new BootstrapClient().probeHostKey(profile, abort.signal),
+      (error: unknown) => error instanceof DomainError && error.code === 'CANCELLED',
+    );
+  });
+
+  test('destroys an active discovery socket when cancelled', async () => {
+    let acceptedSocket: Socket | undefined;
+    let acceptConnection: (() => void) | undefined;
+    const accepted = new Promise<void>((resolve) => {
+      acceptConnection = resolve;
+    });
+    const server = createTcpServer((socket) => {
+      acceptedSocket = socket;
+      acceptConnection?.();
+    });
+    await new Promise<void>((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(0, '127.0.0.1', resolve);
+    });
+    const address = server.address();
+    assert.notEqual(address, null);
+    assert.equal(typeof address, 'object');
+    if (address === null || typeof address === 'string') {
+      throw new Error('Unable to allocate loopback TCP port.');
+    }
+    const abort = new AbortController();
+    const probe = new BootstrapClient().probeHostKey(
+      { ...profileBase, port: address.port },
+      abort.signal,
+    );
+    await accepted;
+    const socketClosed = new Promise<void>((resolve) => acceptedSocket?.once('close', resolve));
+    abort.abort();
+
+    await assert.rejects(
+      probe,
+      (error: unknown) => error instanceof DomainError && error.code === 'CANCELLED',
+    );
+    await socketClosed;
+    await new Promise<void>((resolve) => server.close(() => resolve()));
   });
 
   test('uses exactly one password authentication after the exact host key is trusted', async () => {
