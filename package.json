@@ -2,7 +2,7 @@
   "name": "ssh-onboard",
   "displayName": "%extension.displayName%",
   "description": "%extension.description%",
-  "version": "0.1.0-preview.2",
+  "version": "0.1.0-preview.3",
   "publisher": "ZhangZhengruiNUS",
   "license": "SEE LICENSE IN LICENSE",
   "private": true,
